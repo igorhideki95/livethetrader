@@ -38,6 +38,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           set -o pipefail
+          # Usa os addopts definidos em pyproject.toml (coverage, junit e fail-under).
           pytest 2>&1 | tee artifacts/test.log
 
       - name: Run lint (ruff)
@@ -56,9 +57,9 @@ jobs:
         with:
           name: ci-evidence-${{ github.run_id }}
           path: |
+            artifacts/coverage.xml
+            artifacts/junit.xml
             artifacts/test.log
             artifacts/lint.log
             artifacts/typecheck.log
-            artifacts/coverage.xml
-            artifacts/junit.xml
           if-no-files-found: warn

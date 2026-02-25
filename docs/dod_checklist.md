@@ -20,11 +20,11 @@ Este checklist operacionaliza o DoD em etapas verificáveis com evidências publ
 
 - [ ] Logs de teste, lint e tipagem anexados como artifact da execução de CI.
 - [ ] Relatórios estruturados (`coverage.xml` e `junit.xml`) anexados como artifact da execução de CI.
-- [ ] Nome do artifact esperado no GitHub Actions: `ci-evidence-<run_id>`.
+- [ ] Nome do artifact no GitHub Actions: `ci-evidence-<run_id>` (ex.: `ci-evidence-${{ github.run_id }}`).
 
 ## 4) Gate para merge
 
-- [ ] Workflow obrigatório para PR na branch `main`: job `quality-gates` em `.github/workflows/ci.yml`.
+- [ ] Workflow obrigatório para PR na branch `main`: job `quality-gates` no workflow `CI` (`.github/workflows/ci.yml`).
 - [ ] Merge permitido apenas com pipeline verde (status check obrigatório configurado no repositório para `CI / quality-gates`).
 
 > Observação: a exigência de status check obrigatório é aplicada nas configurações de proteção de branch do GitHub.
