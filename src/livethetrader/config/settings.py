@@ -20,6 +20,13 @@ class EndpointsConfig:
 
 
 @dataclass(slots=True)
+class ProviderSettingsConfig:
+    provider_name: str = ""
+    symbol: str = ""
+    credentials: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class ThresholdsConfig:
     confidence_min: float = 0.55
     risk_rejection_max: float = 0.45
@@ -38,6 +45,7 @@ class AppConfig:
     poll_interval_seconds: float = 2.0
     limits: LimitsConfig = field(default_factory=LimitsConfig)
     endpoints: EndpointsConfig = field(default_factory=EndpointsConfig)
+    provider: ProviderSettingsConfig = field(default_factory=ProviderSettingsConfig)
     thresholds: ThresholdsConfig = field(default_factory=ThresholdsConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
 
@@ -89,6 +97,21 @@ def _apply_mapping_overrides(config: AppConfig, payload: dict[str, Any]) -> None
         if "provider_endpoint" in endpoints:
             config.endpoints.provider_endpoint = str(endpoints["provider_endpoint"])
 
+    provider = payload.get("provider")
+    if isinstance(provider, dict):
+        if "provider_name" in provider:
+            config.provider.provider_name = str(provider["provider_name"])
+        if "symbol" in provider:
+            config.provider.symbol = str(provider["symbol"])
+
+        credentials = provider.get("credentials")
+        if isinstance(credentials, dict):
+            config.provider.credentials = {
+                str(key): str(value)
+                for key, value in credentials.items()
+                if str(value).strip()
+            }
+
     thresholds = payload.get("thresholds")
     if isinstance(thresholds, dict):
         if "confidence_min" in thresholds:
@@ -122,6 +145,21 @@ def _apply_env_overrides(config: AppConfig) -> None:
         config.endpoints.dashboard_base_url = base_url
     if provider_endpoint := os.getenv("LTT_PROVIDER_ENDPOINT"):
         config.endpoints.provider_endpoint = provider_endpoint
+
+    if provider_name := os.getenv("LTT_PROVIDER_NAME"):
+        config.provider.provider_name = provider_name
+    if provider_symbol := os.getenv("LTT_PROVIDER_SYMBOL"):
+        config.provider.symbol = provider_symbol
+
+    provider_credentials = {
+        "api_key": os.getenv("LTT_PROVIDER_API_KEY", ""),
+        "api_key_header": os.getenv("LTT_PROVIDER_API_KEY_HEADER", ""),
+        "api_key_prefix": os.getenv("LTT_PROVIDER_API_KEY_PREFIX", ""),
+        "auth_payload": os.getenv("LTT_PROVIDER_AUTH_PAYLOAD", ""),
+    }
+    config.provider.credentials.update(
+        {key: value for key, value in provider_credentials.items() if value.strip()}
+    )
 
     if confidence_min := os.getenv("LTT_CONFIDENCE_MIN"):
         config.thresholds.confidence_min = float(confidence_min)
