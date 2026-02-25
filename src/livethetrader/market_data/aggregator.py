@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 
 from livethetrader.models import Candle, Tick
 
-
 TIMEFRAME_MINUTES: dict[str, int] = {"1m": 1, "5m": 5, "15m": 15}
 
 
@@ -53,7 +52,9 @@ class MultiTimeframeCandleBuilder:
                         symbol=self.symbol,
                         timeframe=timeframe,
                         timestamp_open=state.start,
-                        timestamp_close=state.start + timedelta(minutes=TIMEFRAME_MINUTES[timeframe]) - timedelta(milliseconds=1),
+                        timestamp_close=state.start
+                        + timedelta(minutes=TIMEFRAME_MINUTES[timeframe])
+                        - timedelta(milliseconds=1),
                         open=state.open,
                         high=state.high,
                         low=state.low,

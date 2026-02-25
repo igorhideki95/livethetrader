@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from livethetrader.models import Direction
+
 
 class RiskManager:
     def __init__(self, min_confidence: float = 0.6):
         self.min_confidence = min_confidence
 
-    def approve(self, direction: str, confidence: float) -> tuple[str, float, list[str]]:
+    def approve(
+        self, direction: Direction, confidence: float
+    ) -> tuple[Direction, float, list[str]]:
         if direction == "NEUTRO":
             return direction, confidence, ["neutral_signal"]
         if confidence < self.min_confidence:

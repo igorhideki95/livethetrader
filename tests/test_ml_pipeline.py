@@ -1,6 +1,11 @@
 import json
 
-from livethetrader.ml import MLPipeline, SignalPublicationGate, ThresholdPolicy, build_supervised_dataset
+from livethetrader.ml import (
+    MLPipeline,
+    SignalPublicationGate,
+    ThresholdPolicy,
+    build_supervised_dataset,
+)
 
 
 def _sample_row(index: int, direction: str = "CALL") -> dict:

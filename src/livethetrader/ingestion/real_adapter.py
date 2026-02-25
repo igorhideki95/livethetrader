@@ -76,8 +76,7 @@ class RealTickSourceAdapter(TickSource):
             except Exception as exc:  # noqa: BLE001 - keep stream resilient
                 backoff = min(
                     self.config.max_backoff_seconds,
-                    self.config.initial_backoff_seconds
-                    * (self.config.backoff_multiplier ** attempt),
+                    self.config.initial_backoff_seconds * (self.config.backoff_multiplier**attempt),
                 )
                 self._log(
                     "connection_error",
@@ -108,9 +107,7 @@ class RealTickSourceAdapter(TickSource):
         try:
             import websocket  # type: ignore[import-not-found]
         except ImportError as exc:
-            raise RuntimeError(
-                "websocket-client package is required for ws/wss endpoints"
-            ) from exc
+            raise RuntimeError("websocket-client package is required for ws/wss endpoints") from exc
 
         ws = websocket.create_connection(
             config.endpoint,
