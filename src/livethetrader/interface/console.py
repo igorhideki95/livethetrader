@@ -15,6 +15,13 @@ from livethetrader.logging import configure_logging, get_logger, log_event
 
 LOGGER = get_logger(__name__)
 
+_CONTROL_MESSAGES = {
+    "start": "Sistema iniciado.",
+    "pause": "Sistema pausado.",
+    "restart": "Sistema reiniciado.",
+    "reload-config": "Configuração recarregada.",
+}
+
 
 class _LocalDashboardHandler(BaseHTTPRequestHandler):
     service = TradingSignalService(symbol="EURUSD")
@@ -27,9 +34,26 @@ class _LocalDashboardHandler(BaseHTTPRequestHandler):
 
         signal = self.service.run_once(tick_count=6000)
         payload = build_local_dashboard_payload(signal_contract=signal)
-        body = json.dumps(payload).encode("utf-8")
+        self._send_json(200, payload)
 
-        self.send_response(200)
+    def do_POST(self) -> None:  # noqa: N802
+        if not self.path.startswith("/api/v1/dashboard/control/"):
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        action = self.path.rsplit("/", 1)[-1]
+        if action not in _CONTROL_MESSAGES:
+            payload = {"ok": False, "message": f"Ação não suportada: {action}"}
+            self._send_json(404, payload)
+            return
+
+        payload = {"ok": True, "message": _CONTROL_MESSAGES[action]}
+        self._send_json(200, payload)
+
+    def _send_json(self, status_code: int, payload: dict) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
