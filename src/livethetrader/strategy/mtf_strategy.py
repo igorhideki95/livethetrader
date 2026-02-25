@@ -8,7 +8,9 @@ Direction = Literal["CALL", "PUT", "NEUTRO"]
 class MultiTimeframeStrategy:
     """15m regime + 5m confirmation + 1m timing."""
 
-    def evaluate(self, features_by_tf: dict[str, dict[str, float]]) -> tuple[Direction, float, list[str]]:
+    def evaluate(
+        self, features_by_tf: dict[str, dict[str, float]]
+    ) -> tuple[Direction, float, list[str]]:
         required = {"1m", "5m", "15m"}
         if not required.issubset(features_by_tf):
             return "NEUTRO", 0.0, ["missing_timeframe_features"]

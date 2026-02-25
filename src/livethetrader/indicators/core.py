@@ -33,7 +33,9 @@ def rsi(values: list[float], period: int = 14) -> float | None:
     return 100 - (100 / (1 + rs))
 
 
-def atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> float | None:
+def atr(
+    highs: list[float], lows: list[float], closes: list[float], period: int = 14
+) -> float | None:
     if len(closes) <= period:
         return None
     true_ranges: list[float] = []
@@ -54,7 +56,9 @@ def atr(highs: list[float], lows: list[float], closes: list[float], period: int 
     return value
 
 
-def macd(values: list[float], fast: int = 12, slow: int = 26, signal: int = 9) -> dict[str, float] | None:
+def macd(
+    values: list[float], fast: int = 12, slow: int = 26, signal: int = 9
+) -> dict[str, float] | None:
     if len(values) < slow + signal:
         return None
     k_fast = 2 / (fast + 1)

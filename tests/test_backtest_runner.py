@@ -30,7 +30,19 @@ def _build_candles(symbol: str, timeframe: str, closes: list[float]) -> list[Can
 
 def test_backtest_report_contains_required_metrics_and_comparisons(tmp_path):
     closes = [1.0, 1.002, 1.001, 1.004, 1.003, 1.005, 1.007, 1.006, 1.009, 1.011, 1.008, 1.01]
-    directions = ["CALL", "PUT", "CALL", "CALL", "PUT", "CALL", "PUT", "CALL", "CALL", "PUT", "CALL"]
+    directions = [
+        "CALL",
+        "PUT",
+        "CALL",
+        "CALL",
+        "PUT",
+        "CALL",
+        "PUT",
+        "CALL",
+        "CALL",
+        "PUT",
+        "CALL",
+    ]
     candles = _build_candles("EURUSD", "1m", closes)
 
     runner = BacktestRunner()

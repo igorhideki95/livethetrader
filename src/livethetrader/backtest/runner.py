@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from livethetrader.models import Candle, SCHEMA_VERSION, to_utc_iso
+from livethetrader.models import SCHEMA_VERSION, Candle, to_utc_iso
 
 
 @dataclass(slots=True)
@@ -73,7 +73,9 @@ class BacktestRunner:
         valid_end = int(tradable * 0.8)
         return [
             TemporalWindow(name="train", start_idx=0, end_idx=max(train_end - 1, 0)),
-            TemporalWindow(name="validation", start_idx=train_end, end_idx=max(valid_end - 1, train_end)),
+            TemporalWindow(
+                name="validation", start_idx=train_end, end_idx=max(valid_end - 1, train_end)
+            ),
             TemporalWindow(name="oos", start_idx=valid_end, end_idx=tradable - 1),
         ]
 
@@ -116,7 +118,9 @@ class BacktestRunner:
                 {
                     "name": window.name,
                     "start": to_utc_iso(candles[window.start_idx].timestamp_open),
-                    "end": to_utc_iso(candles[min(window.end_idx + 1, len(candles) - 1)].timestamp_close),
+                    "end": to_utc_iso(
+                        candles[min(window.end_idx + 1, len(candles) - 1)].timestamp_close
+                    ),
                     **self._compute_metrics(pnl_series, wins, losses),
                 }
             )
@@ -176,7 +180,9 @@ class BacktestRunner:
             "win_rate": round(win_rate, 4),
             "net_pnl": round(sum(pnl_series), 6),
             "max_drawdown": round(max_drawdown, 6),
-            "profit_factor": round(profit_factor, 6) if profit_factor != float("inf") else float("inf"),
+            "profit_factor": round(profit_factor, 6)
+            if profit_factor != float("inf")
+            else float("inf"),
             "expectancy": round(expectancy, 6),
         }
 

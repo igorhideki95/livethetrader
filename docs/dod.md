@@ -135,3 +135,7 @@ Este documento define os critérios mínimos de conclusão para cada papel (`AI_
 - Capturas de tela/registro visual das telas principais.
 - Logs de frontend/backend durante uso do dashboard.
 - Checklist de cenários críticos validados (dados, erro, reconexão).
+
+## Checklist operacional
+
+- Consulte `docs/dod_checklist.md` para o checklist de execução com evidências de CI por etapa.

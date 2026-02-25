@@ -61,7 +61,8 @@ def _run_test_server() -> tuple[ThreadingHTTPServer, str]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FlakyDashboardHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    host, port = server.server_address
+    host = server.server_name
+    port = server.server_port
     return server, f"http://{host}:{port}"
 
 

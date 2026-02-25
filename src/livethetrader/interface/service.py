@@ -13,7 +13,7 @@ class InterfaceService:
     def __init__(self, client: BackendPollingClient, history_limit: int = 20) -> None:
         self.client = client
         self.history_limit = history_limit
-        self._history = deque(maxlen=history_limit)
+        self._history: deque[dict] = deque(maxlen=history_limit)
 
     def fetch_snapshot(self) -> tuple[DashboardSnapshot | None, str | None]:
         result: PollResult = self.client.poll_once()

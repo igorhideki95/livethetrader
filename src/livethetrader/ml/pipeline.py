@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from statistics import mean
 from typing import Callable
 
-Direction = str
+from livethetrader.models import Direction
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,7 +122,9 @@ class MLPipeline:
         entry_close: float,
     ) -> SupervisedSample:
         returns = (future_close - entry_close) / max(entry_close, 1e-9)
-        volatility = abs(base_features.get("atr_14", 0.0)) / max(base_features.get("ema_21", 1.0), 1e-9)
+        volatility = abs(base_features.get("atr_14", 0.0)) / max(
+            base_features.get("ema_21", 1.0), 1e-9
+        )
         regime = base_features.get("ema_9", 0.0) - base_features.get("ema_21", 0.0)
 
         target_hit = 0

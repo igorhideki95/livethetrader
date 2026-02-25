@@ -19,9 +19,13 @@ class SignalEngine:
         self.risk = risk or RiskManager()
         self.publication_gate = publication_gate or SignalPublicationGate()
 
-    def generate(self, symbol: str, features_by_tf: dict[str, dict[str, float]], expiry: str = "5m") -> Signal:
+    def generate(
+        self, symbol: str, features_by_tf: dict[str, dict[str, float]], expiry: str = "5m"
+    ) -> Signal:
         strategy_direction, confidence, reasons = self.strategy.evaluate(features_by_tf)
-        risk_direction, risk_confidence, risk_reasons = self.risk.approve(strategy_direction, confidence)
+        risk_direction, risk_confidence, risk_reasons = self.risk.approve(
+            strategy_direction, confidence
+        )
 
         features_1m = features_by_tf.get("1m", {})
         direction, confidence, ml_reasons = self.publication_gate.approve(

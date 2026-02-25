@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-from livethetrader.models import Candle, FeatureVector, SCHEMA_VERSION, Tick, TradeOutcome
+from livethetrader.models import SCHEMA_VERSION, Candle, FeatureVector, Tick, TradeOutcome
 
 UTC_ISO_8601_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 
