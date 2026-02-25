@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 from dataclasses import dataclass
 from statistics import mean
 from typing import Callable
@@ -108,6 +110,7 @@ class MLPipeline:
         self.threshold_policy = threshold_policy or ThresholdPolicy()
         self.model = LinearProbabilityModel()
         self.calibrator = PlattCalibrator()
+        self.model_ready = False
 
     @staticmethod
     def build_sample(
@@ -158,12 +161,42 @@ class MLPipeline:
         )
 
     def train(self, dataset: DatasetBundle) -> None:
+        if not dataset.train:
+            self.model_ready = False
+            return
         self.model.fit(dataset.train)
         val_raw = [self.model.predict_proba(sample.features) for sample in dataset.validation]
         labels = [sample.target_hit for sample in dataset.validation]
         self.calibrator.fit(val_raw, labels)
+        self.model_ready = True
+
+    def load_artifact(self, artifact_path: str | Path) -> bool:
+        path = Path(artifact_path)
+        if not path.exists():
+            self.model_ready = False
+            return False
+
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            self.model_ready = False
+            return False
+
+        model_data = payload.get("model", {})
+        calibrator_data = payload.get("calibrator", {})
+
+        self.model._weights = {
+            str(name): float(weight) for name, weight in model_data.get("weights", {}).items()
+        }
+        self.model._bias = float(model_data.get("bias", 0.0))
+        self.calibrator.a = float(calibrator_data.get("a", 1.0))
+        self.calibrator.b = float(calibrator_data.get("b", 0.0))
+        self.model_ready = True
+        return True
 
     def predict_probability(self, features: dict[str, float]) -> float:
+        if not self.model_ready:
+            return 0.0
         raw = self.model.predict_proba(features)
         return self.calibrator.transform(raw)
 
@@ -193,6 +226,9 @@ class SignalPublicationGate:
         if risk_direction == "NEUTRO":
             return "NEUTRO", confidence, reasons + ["risk_guard_block"]
         reasons.append("risk_guard_pass")
+
+        if not self.ml_pipeline.model_ready:
+            return "NEUTRO", 0.0, reasons + ["ml_model_not_ready_block"]
 
         ml_probability = self.predict_ml_confidence(features)
         if not self.ml_pipeline.passes_operational_threshold(ml_probability):

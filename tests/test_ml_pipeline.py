@@ -1,4 +1,6 @@
-from livethetrader.ml import MLPipeline, SignalPublicationGate, build_supervised_dataset
+import json
+
+from livethetrader.ml import MLPipeline, SignalPublicationGate, ThresholdPolicy, build_supervised_dataset
 
 
 def _sample_row(index: int, direction: str = "CALL") -> dict:
@@ -37,12 +39,13 @@ def test_temporal_split_and_training_with_probability_calibration():
     assert len(dataset.validation) > 0
 
     pipeline.train(dataset)
+    assert pipeline.model_ready is True
     probability = pipeline.predict_probability(dataset.test[0].features)
     assert 0.0 <= probability <= 1.0
 
 
-def test_signal_publication_gate_requires_strategy_risk_and_ml_confidence():
-    gate = SignalPublicationGate()
+def test_signal_publication_gate_blocks_when_model_is_not_ready():
+    gate = SignalPublicationGate(ml_pipeline=MLPipeline())
     features = {
         "ema_9": 1.2,
         "ema_21": 1.0,
@@ -51,22 +54,60 @@ def test_signal_publication_gate_requires_strategy_risk_and_ml_confidence():
         "rsi_14": 55,
     }
 
-    direction, _, reasons = gate.approve(
-        strategy_direction="NEUTRO",
-        risk_direction="NEUTRO",
-        confidence=0.7,
-        features=features,
-    )
-    assert direction == "NEUTRO"
-    assert "strategy_rules_block" in reasons
-
     direction, confidence, reasons = gate.approve(
         strategy_direction="CALL",
         risk_direction="CALL",
         confidence=0.8,
         features=features,
     )
-    assert direction in {"CALL", "NEUTRO"}
-    assert 0.0 <= confidence <= 1.0
-    assert "strategy_rules_pass" in reasons
-    assert "risk_guard_pass" in reasons
+    assert direction == "NEUTRO"
+    assert confidence == 0.0
+    assert "ml_model_not_ready_block" in reasons
+
+
+def test_ml_pipeline_load_artifact_and_gate_probability_threshold(tmp_path):
+    artifact_path = tmp_path / "model_artifact.json"
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "model": {"weights": {"ema_9": 2.0, "ema_21": -1.0}, "bias": 0.0},
+                "calibrator": {"a": 1.0, "b": 0.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    pipeline = MLPipeline(threshold_policy=ThresholdPolicy(minimum_probability=0.7))
+    loaded = pipeline.load_artifact(artifact_path)
+    assert loaded is True
+    assert pipeline.model_ready is True
+
+    gate = SignalPublicationGate(ml_pipeline=pipeline)
+    direction, confidence, reasons = gate.approve(
+        strategy_direction="CALL",
+        risk_direction="CALL",
+        confidence=0.8,
+        features={"ema_9": 1.3, "ema_21": 0.8},
+    )
+    assert direction == "CALL"
+    assert confidence >= 0.7
+    assert "ml_confidence_pass" in reasons
+
+    direction, confidence, reasons = gate.approve(
+        strategy_direction="CALL",
+        risk_direction="CALL",
+        confidence=0.8,
+        features={"ema_9": 0.1, "ema_21": 2.0},
+    )
+    assert direction == "NEUTRO"
+    assert confidence < 0.7
+    assert "ml_confidence_block" in reasons
+
+
+def test_ml_pipeline_missing_artifact_returns_false_and_keeps_fallback_safe(tmp_path):
+    pipeline = MLPipeline()
+
+    loaded = pipeline.load_artifact(tmp_path / "missing_model_artifact.json")
+    assert loaded is False
+    assert pipeline.model_ready is False
+    assert pipeline.predict_probability({"ema_9": 1.2, "ema_21": 1.0}) == 0.0
