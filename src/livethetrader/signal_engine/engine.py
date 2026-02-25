@@ -23,7 +23,7 @@ class SignalEngine:
         self, symbol: str, features_by_tf: dict[str, dict[str, float]], expiry: str = "5m"
     ) -> Signal:
         strategy_direction, confidence, reasons = self.strategy.evaluate(features_by_tf)
-        risk_direction, risk_confidence, risk_reasons = self.risk.approve(
+        risk_direction, _risk_confidence, risk_reasons = self.risk.approve(
             strategy_direction, confidence
         )
 
@@ -31,7 +31,6 @@ class SignalEngine:
         direction, confidence, ml_reasons = self.publication_gate.approve(
             strategy_direction=strategy_direction,
             risk_direction=risk_direction,
-            confidence=risk_confidence,
             features=features_1m,
         )
         reason_codes = reasons + risk_reasons + ml_reasons

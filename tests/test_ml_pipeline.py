@@ -62,7 +62,6 @@ def test_signal_publication_gate_blocks_when_model_is_not_ready():
     direction, confidence, reasons = gate.approve(
         strategy_direction="CALL",
         risk_direction="CALL",
-        confidence=0.8,
         features=features,
     )
     assert direction == "NEUTRO"
@@ -91,7 +90,6 @@ def test_ml_pipeline_load_artifact_and_gate_probability_threshold(tmp_path):
     direction, confidence, reasons = gate.approve(
         strategy_direction="CALL",
         risk_direction="CALL",
-        confidence=0.8,
         features={"ema_9": 1.3, "ema_21": 0.8},
     )
     assert direction == "CALL"
@@ -101,7 +99,6 @@ def test_ml_pipeline_load_artifact_and_gate_probability_threshold(tmp_path):
     direction, confidence, reasons = gate.approve(
         strategy_direction="CALL",
         risk_direction="CALL",
-        confidence=0.8,
         features={"ema_9": 0.1, "ema_21": 2.0},
     )
     assert direction == "NEUTRO"
