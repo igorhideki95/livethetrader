@@ -227,6 +227,13 @@ Este documento define os contratos canônicos entre módulos para payloads de me
 | `net_pnl` | `number` | Resultado líquido consolidado. |
 | `max_drawdown` | `number` | Drawdown máximo no período. |
 | `sharpe` | `number` | Índice de Sharpe (quando aplicável). |
+| `profit_factor` | `number` | Razão lucro bruto / perda bruta. |
+| `expectancy` | `number` | Valor esperado por trade. |
+| `temporal_windows` | `array` | Resultados por janela temporal (sem leakage). |
+| `comparison_by_asset_timeframe` | `object` | Comparativo por ativo/timeframe. |
+| `comparison_by_market_regime` | `object` | Comparativo por regime (`bull`, `bear`, `sideways`). |
+| `report_version` | `string` | Versão do relatório de backtest. |
+| `report_path` | `string` | Caminho do arquivo `reports/backtest_*.json` gerado. |
 
 ### Exemplo JSON
 
@@ -239,10 +246,21 @@ Este documento define os contratos canônicos entre módulos para payloads de me
   "timestamp_open": "2025-12-01T00:00:00Z",
   "timestamp_close": "2025-12-31T23:59:59.999Z",
   "strategy_name": "mtf_probabilistic_v3",
+  "report_version": "1.0.0",
   "trades_total": 428,
   "win_rate": 0.61,
   "net_pnl": 1240.5,
   "max_drawdown": -310.2,
-  "sharpe": 1.42
+  "sharpe": 1.42,
+  "profit_factor": 1.48,
+  "expectancy": 2.89,
+  "temporal_windows": [
+    {"name": "train", "win_rate": 0.63},
+    {"name": "validation", "win_rate": 0.59},
+    {"name": "oos", "win_rate": 0.57}
+  ],
+  "comparison_by_asset_timeframe": {"EURUSD:1m": {"win_rate": 0.61}},
+  "comparison_by_market_regime": {"bull": {"win_rate": 0.64}, "bear": {"win_rate": 0.56}, "sideways": {"win_rate": 0.53}},
+  "report_path": "reports/backtest_20260115_235959_bt_20260115_eurusd_1m_v3.json"
 }
 ```
