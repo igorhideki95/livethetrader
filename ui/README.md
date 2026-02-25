@@ -40,6 +40,17 @@ Stack escolhida: **Streamlit + Plotly + Pandas**, com cliente HTTP simples para 
    - Reiniciar.
    - Recarregar configuração.
 
+
+## Estratégia de refresh
+
+A atualização automática usa apenas API nativa do Streamlit (compatível com `streamlit>=1.38`):
+
+- seletor de intervalo na sidebar (`st.sidebar.slider`);
+- espera síncrona com `time.sleep(intervalo_em_segundos)` ao fim da renderização;
+- novo ciclo com `st.rerun()` (sem dependência de `st.autorefresh`/plugins externos).
+
+Isso elimina erro de atributo em ambientes onde `st.autorefresh` não está disponível.
+
 ## Contrato esperado do backend
 
 ### `GET /api/v1/dashboard`
@@ -106,7 +117,7 @@ A UI envia `POST` para:
 ## Como executar
 
 ```bash
-pip install streamlit plotly pandas
+pip install "streamlit>=1.38" "plotly>=5.24" "pandas>=2.2"
 streamlit run ui/app.py
 ```
 
