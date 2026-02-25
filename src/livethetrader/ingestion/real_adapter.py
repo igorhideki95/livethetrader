@@ -11,9 +11,10 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from livethetrader.ingestion.base import TickSource
+from livethetrader.logging import get_logger, log_event
 from livethetrader.models import Tick
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -63,7 +64,6 @@ class RealTickSourceAdapter(TickSource):
             self._log(
                 "connection_start",
                 endpoint=self.config.endpoint,
-                symbol=self.config.symbol,
                 attempt=attempt + 1,
             )
             try:
@@ -223,10 +223,11 @@ class RealTickSourceAdapter(TickSource):
         return value
 
     def _log(self, event: str, *, level: int = logging.INFO, **fields: Any) -> None:
-        record = {
-            "event": event,
-            "provider": self.provider_name,
-            "symbol": self.config.symbol,
+        log_event(
+            self._logger,
+            event,
+            level=level,
+            provider=self.provider_name,
+            symbol=self.config.symbol,
             **fields,
-        }
-        self._logger.log(level, json.dumps(record, default=str))
+        )
