@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from typing import Any
 from datetime import datetime, timezone
 
 from livethetrader.interface.client import BackendPollingClient, PollResult
@@ -40,30 +41,60 @@ class InterfaceService:
         return snapshot, None
 
 
-def build_local_dashboard_payload(signal_contract: dict, system_status: str = "ONLINE") -> dict:
-    """Utility to expose current backend signal in dashboard format for local runs."""
+def build_local_dashboard_payload(signal_contract: dict[str, Any], system_status: str = "running") -> dict[str, Any]:
+    """Utility to expose current backend signal in canonical dashboard format for local runs."""
 
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    direction = str(signal_contract.get("direction", "NEUTRO"))
+    confidence = float(signal_contract.get("confidence", 0.0))
+    symbol = str(signal_contract.get("symbol", "UNKNOWN"))
+
+    history = [
+        {
+            "time": str(signal_contract.get("timestamp_open", now)),
+            "symbol": symbol,
+            "signal": direction,
+            "confidence": confidence,
+            "result": "OPEN",
+            "pnl": 0.0,
+        }
+    ]
+
     return {
-        "symbol": signal_contract["symbol"],
-        "timeframe": signal_contract["timeframe"],
-        "last_signal": signal_contract["direction"],
-        "confidence": signal_contract["confidence"],
-        "system_status": system_status,
-        "metrics": {
-            "win_rate": 0.57,
-            "profit_factor": 1.32,
-            "drawdown": 0.08,
-            "trades_total": 34,
+        "status": system_status.lower(),
+        "updated_at": now,
+        "current_signal": {
+            "direction": direction,
+            "confidence": confidence,
+            "timestamp": str(signal_contract.get("timestamp_open", now)),
         },
-        "history": [
+        "candles": [
             {
-                "signal_id": signal_contract["signal_id"],
-                "symbol": signal_contract["symbol"],
-                "timeframe": signal_contract["timeframe"],
-                "direction": signal_contract["direction"],
-                "confidence": signal_contract["confidence"],
-                "timestamp_open": signal_contract.get("timestamp_open", now),
+                "time": now,
+                "open": 1.1020,
+                "high": 1.1030,
+                "low": 1.1010,
+                "close": 1.1025,
+                "volume": 100.0,
+                "indicators": {
+                    "ema_9": 1.1022,
+                    "ema_21": 1.1019,
+                },
+                "signal": direction,
             }
         ],
+        "history": history,
+        "metrics": {
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "drawdown": 0.0,
+            "trades": len(history),
+            "expectancy": 0.0,
+            "equity_curve": [
+                {
+                    "time": history[0]["time"],
+                    "equity": 0.0,
+                }
+            ],
+        },
     }
