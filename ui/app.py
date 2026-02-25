@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -208,7 +209,11 @@ def main() -> None:
     st.plotly_chart(plot_equity_curve(snapshot), use_container_width=True)
     render_history(snapshot)
 
-    st.autorefresh(interval=refresh_seconds * 1000, key="dashboard-refresh")
+    st.sidebar.caption(
+        "Auto-refresh compatível com Streamlit nativo: aguarda o intervalo e executa st.rerun()."
+    )
+    time.sleep(refresh_seconds)
+    st.rerun()
 
 
 if __name__ == "__main__":
