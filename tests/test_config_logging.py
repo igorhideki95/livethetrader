@@ -49,3 +49,19 @@ def test_json_logging_format_is_structured() -> None:
     assert parsed["event"] == "evidence_event"
     assert parsed["symbol"] == "EURUSD"
     assert parsed["value"] == 1
+
+
+def test_load_provider_settings_from_env(monkeypatch) -> None:
+    monkeypatch.setenv("LTT_PROVIDER_ENDPOINT", "https://provider.local/ticks")
+    monkeypatch.setenv("LTT_PROVIDER_NAME", "demo")
+    monkeypatch.setenv("LTT_PROVIDER_SYMBOL", "EURUSD")
+    monkeypatch.setenv("LTT_PROVIDER_API_KEY", "secret")
+    monkeypatch.setenv("LTT_PROVIDER_API_KEY_HEADER", "X-API-Key")
+
+    config = load_config()
+
+    assert config.endpoints.provider_endpoint == "https://provider.local/ticks"
+    assert config.provider.provider_name == "demo"
+    assert config.provider.symbol == "EURUSD"
+    assert config.provider.credentials["api_key"] == "secret"
+    assert config.provider.credentials["api_key_header"] == "X-API-Key"
