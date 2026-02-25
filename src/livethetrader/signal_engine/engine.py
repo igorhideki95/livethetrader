@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from livethetrader.config import AppConfig, load_config
+from livethetrader.logging import get_logger, log_event
 from livethetrader.ml import SignalPublicationGate
 from livethetrader.models import Signal
 from livethetrader.risk.manager import RiskManager
 from livethetrader.strategy.mtf_strategy import MultiTimeframeStrategy
+
+LOGGER = get_logger(__name__)
 
 
 class SignalEngine:
@@ -14,10 +18,12 @@ class SignalEngine:
         strategy: MultiTimeframeStrategy | None = None,
         risk: RiskManager | None = None,
         publication_gate: SignalPublicationGate | None = None,
+        config: AppConfig | None = None,
     ):
         self.strategy = strategy or MultiTimeframeStrategy()
         self.risk = risk or RiskManager()
         self.publication_gate = publication_gate or SignalPublicationGate()
+        self.config = config or load_config()
 
     def generate(
         self, symbol: str, features_by_tf: dict[str, dict[str, float]], expiry: str = "5m"
@@ -34,6 +40,27 @@ class SignalEngine:
             features=features_1m,
         )
         reason_codes = reasons + risk_reasons + ml_reasons
+
+        if confidence < self.config.thresholds.confidence_min:
+            log_event(
+                LOGGER,
+                "signal_confidence_below_threshold",
+                symbol=symbol,
+                confidence=confidence,
+                threshold=self.config.thresholds.confidence_min,
+            )
+
+        log_event(
+            LOGGER,
+            "signal_generated",
+            symbol=symbol,
+            direction=direction,
+            strategy_direction=strategy_direction,
+            risk_direction=risk_direction,
+            confidence=confidence,
+            reason_codes=reason_codes,
+        )
+
         return Signal(
             symbol=symbol,
             timeframe="1m",

@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 
 from livethetrader.interface.client import BackendPollingClient, PollResult
 from livethetrader.interface.models import DashboardSnapshot
+from livethetrader.logging import get_logger, log_event
+
+LOGGER = get_logger(__name__)
 
 
 class InterfaceService:
@@ -18,13 +21,22 @@ class InterfaceService:
     def fetch_snapshot(self) -> tuple[DashboardSnapshot | None, str | None]:
         result: PollResult = self.client.poll_once()
         if not result.connected or not result.payload:
-            return None, result.error or "Backend indisponível"
+            error_message = result.error or "Backend indisponível"
+            log_event(LOGGER, "interface_snapshot_error", error=error_message)
+            return None, error_message
 
         payload = result.payload
         payload_history = payload.get("history", [])
         self._history.extend(payload_history)
         payload["history"] = list(self._history)
         snapshot = DashboardSnapshot.from_payload(payload)
+        log_event(
+            LOGGER,
+            "interface_snapshot_ready",
+            symbol=snapshot.symbol,
+            timeframe=snapshot.timeframe,
+            history_count=len(snapshot.history),
+        )
         return snapshot, None
 
 

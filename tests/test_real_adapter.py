@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import timezone
@@ -83,8 +82,7 @@ def test_stream_reconnects_with_exponential_backoff(caplog) -> None:
     assert attempts["count"] >= 2
     assert sleep_calls == [0.1]
 
-    logs = [json.loads(record.message) for record in caplog.records]
-    events = {entry["event"] for entry in logs}
+    events = {record.message for record in caplog.records}
     assert "connection_error" in events
     assert "connection_resume" in events
 
@@ -107,4 +105,4 @@ def test_stream_skips_invalid_messages(caplog) -> None:
 
     assert tick.last == 1.05
     assert tick.volume == 0.0
-    assert any("parse_error" in record.message for record in caplog.records)
+    assert any(record.message == "parse_error" for record in caplog.records)

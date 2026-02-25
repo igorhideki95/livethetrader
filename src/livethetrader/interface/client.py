@@ -7,6 +7,10 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from livethetrader.logging import get_logger, log_event
+
+LOGGER = get_logger(__name__)
+
 
 @dataclass(slots=True)
 class PollResult:
@@ -43,9 +47,24 @@ class BackendPollingClient:
         try:
             payload = self._request()
             self._current_backoff = self.reconnect_backoff
+            log_event(
+                LOGGER,
+                "interface_poll_success",
+                base_url=self.base_url,
+                endpoint=self.endpoint,
+            )
             return PollResult(payload=payload, connected=True, error=None)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
             wait_seconds = self._current_backoff
+            log_event(
+                LOGGER,
+                "interface_poll_error",
+                level=30,
+                base_url=self.base_url,
+                endpoint=self.endpoint,
+                error=str(exc),
+                backoff_seconds=wait_seconds,
+            )
             time.sleep(wait_seconds)
             self._current_backoff = min(self._current_backoff * 2, self.max_backoff)
             return PollResult(payload=None, connected=False, error=str(exc))

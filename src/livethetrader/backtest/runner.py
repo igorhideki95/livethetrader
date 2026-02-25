@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from livethetrader.logging import get_logger, log_event
 from livethetrader.models import SCHEMA_VERSION, Candle, to_utc_iso
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -29,6 +32,16 @@ class BacktestRunner:
     ) -> dict:
         if len(candles) < 2:
             raise ValueError("At least two candles are required for backtest")
+
+        log_event(
+            LOGGER,
+            "backtest_run_started",
+            symbol=symbol,
+            candles=len(candles),
+            directions=len(directions),
+            timeframe=timeframe,
+            strategy_name=strategy_name,
+        )
 
         default_windows = self.build_temporal_windows(len(candles))
         simulation = self.simulate_temporal_windows(
@@ -62,6 +75,17 @@ class BacktestRunner:
             "generated_at": to_utc_iso(datetime.now(timezone.utc)),
         }
         report["report_path"] = self.save_report(report, output_dir=report_output_dir)
+
+        log_event(
+            LOGGER,
+            "backtest_run_completed",
+            symbol=symbol,
+            report_id=report["report_id"],
+            report_path=report["report_path"],
+            trades_total=report["trades_total"],
+            win_rate=report["win_rate"],
+            profit_factor=report["profit_factor"],
+        )
         return report
 
     def build_temporal_windows(self, candle_count: int) -> list[TemporalWindow]:
