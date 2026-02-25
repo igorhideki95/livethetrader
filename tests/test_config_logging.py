@@ -22,6 +22,14 @@ def test_load_config_from_env(monkeypatch) -> None:
     assert config.logging.level == "DEBUG"
 
 
+def test_load_config_log_service_name_override(monkeypatch) -> None:
+    monkeypatch.setenv("LTT_LOG_SERVICE_NAME", "livethetrader-custom")
+
+    config = load_config()
+
+    assert config.logging.service_name == "livethetrader-custom"
+
+
 def test_json_logging_format_is_structured() -> None:
     configure_logging(level="INFO", service_name="livethetrader-ci")
     logger = get_logger("tests.logging")
