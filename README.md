@@ -36,6 +36,9 @@ pip install -e .[dev]
 
 # Dashboard Streamlit
 pip install -e .[ui]
+
+# Suporte a provider em modo WebSocket (ws/wss)
+pip install -e .[provider]
 ```
 
 ## Estrutura principal

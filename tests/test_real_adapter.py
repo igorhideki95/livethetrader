@@ -106,3 +106,54 @@ def test_stream_skips_invalid_messages(caplog) -> None:
     assert tick.last == 1.05
     assert tick.volume == 0.0
     assert any(record.message == "parse_error" for record in caplog.records)
+
+
+def test_websocket_dependency_missing_raises_clear_error(monkeypatch) -> None:
+    config = ProviderConfig(
+        provider_name="fake",
+        symbol="EURUSD",
+        endpoint="wss://fake.local/ticks",
+    )
+
+    original_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "websocket":
+            raise ImportError("missing websocket-client")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
+    adapter = RealTickSourceAdapter(config=config)
+
+    try:
+        next(adapter._default_message_stream(config))
+    except RuntimeError as exc:
+        assert str(exc) == "websocket-client package is required for ws/wss endpoints"
+    else:
+        raise AssertionError("Expected RuntimeError when websocket-client is absent")
+
+
+def test_stream_uses_custom_factory_for_websocket_mode() -> None:
+    config = ProviderConfig(
+        provider_name="fake",
+        symbol="EURUSD",
+        endpoint="wss://fake.local/ticks",
+    )
+
+    def fake_ws_feed(_: ProviderConfig) -> Iterator[Any]:
+        yield {
+            "timestamp": "2025-01-01T00:00:00Z",
+            "bid": 1.2,
+            "ask": 1.3,
+            "last": 1.25,
+            "volume": 7,
+        }
+
+    adapter = RealTickSourceAdapter(config=config, message_stream_factory=fake_ws_feed)
+
+    tick = next(adapter.stream())
+
+    assert tick.symbol == "EURUSD"
+    assert tick.last == 1.25
+    assert tick.volume == 7.0
