@@ -9,6 +9,9 @@ description = "Modular multi-timeframe trading signal engine"
 requires-python = ">=3.11"
 
 [project.optional-dependencies]
+provider = [
+  "websocket-client>=1.8",
+]
 ui = [
   "streamlit>=1.38",
   "plotly>=5.24",
