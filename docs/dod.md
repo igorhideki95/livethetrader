@@ -82,6 +82,12 @@ Este documento define os critérios mínimos de conclusão para cada papel (`AI_
 - **Limites de overfitting:**
   - Gap absoluto entre desempenho in-sample e out-of-sample <= **15 p.p.** na taxa de acerto (ou métrica equivalente normalizada).
   - Estratégias com performance excepcional apenas in-sample devem ser rejeitadas.
+- **Baseline mínimo obrigatório para deploy de estratégia (gate):**
+  - `win_rate >= 0.52`
+  - `profit_factor >= 1.20`
+  - `expectancy >= 0.00`
+  - `max_drawdown >= -0.02`
+  - Qualquer violação bloqueia deploy até nova rodada de backtest.
 
 **Evidências obrigatórias**
 - Relatório de backtest com janelas temporais e parâmetros.
