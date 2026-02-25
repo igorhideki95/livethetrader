@@ -217,16 +217,15 @@ class SignalPublicationGate:
         *,
         strategy_direction: Direction,
         risk_direction: Direction,
-        confidence: float,
         features: dict[str, float],
     ) -> tuple[Direction, float, list[str]]:
         reasons: list[str] = []
         if strategy_direction == "NEUTRO":
-            return "NEUTRO", confidence, ["strategy_rules_block"]
+            return "NEUTRO", 0.0, ["strategy_rules_block"]
         reasons.append("strategy_rules_pass")
 
         if risk_direction == "NEUTRO":
-            return "NEUTRO", confidence, reasons + ["risk_guard_block"]
+            return "NEUTRO", 0.0, reasons + ["risk_guard_block"]
         reasons.append("risk_guard_pass")
 
         if not self.ml_pipeline.model_ready:
