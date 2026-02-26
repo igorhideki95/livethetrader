@@ -10,6 +10,25 @@ from livethetrader.ingestion.real_adapter import RealTickSourceAdapter
 from livethetrader.market_data.aggregator import MultiTimeframeCandleBuilder
 
 
+class _StubStrategy:
+    def __init__(self, confidence: float) -> None:
+        self._confidence = confidence
+
+    def evaluate(self, features_by_tf: dict[str, dict[str, float]]) -> tuple[str, float, list[str]]:
+        return "CALL", self._confidence, ["stub_strategy"]
+
+
+class _PassThroughGate:
+    def approve(
+        self,
+        *,
+        strategy_direction: str,
+        risk_direction: str,
+        features: dict[str, float],
+    ) -> tuple[str, float, list[str]]:
+        return risk_direction, 0.9, ["stub_gate"]
+
+
 def test_candle_aggregation_includes_1m_5m_15m() -> None:
     source = MockTickSource(seed=10)
     builder = MultiTimeframeCandleBuilder(symbol="EURUSD")

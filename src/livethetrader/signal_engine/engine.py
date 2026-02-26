@@ -20,6 +20,7 @@ class SignalEngine:
         risk: RiskManager | None = None,
         config: AppConfig | None = None,
     ):
+        self.config = config or load_config()
         self.strategy = strategy or MultiTimeframeStrategy()
         self.risk = risk or RiskManager()
         self.publication_gate = publication_gate

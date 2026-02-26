@@ -12,6 +12,8 @@ def test_load_config_from_env(monkeypatch) -> None:
     monkeypatch.setenv("LTT_SYMBOLS", "EURUSD,GBPUSD")
     monkeypatch.setenv("LTT_TIMEFRAMES", "1m,5m")
     monkeypatch.setenv("LTT_MAX_TICKS_PER_RUN", "1200")
+    monkeypatch.setenv("LTT_CONFIDENCE_MIN", "0.72")
+    monkeypatch.setenv("LTT_RISK_REJECTION_MAX", "0.51")
     monkeypatch.setenv("LTT_LOG_LEVEL", "debug")
 
     config = load_config()
@@ -19,6 +21,8 @@ def test_load_config_from_env(monkeypatch) -> None:
     assert config.symbols == ["EURUSD", "GBPUSD"]
     assert config.timeframes == ["1m", "5m"]
     assert config.limits.max_ticks_per_run == 1200
+    assert config.thresholds.confidence_min == 0.72
+    assert config.thresholds.risk_rejection_max == 0.51
     assert config.logging.level == "DEBUG"
 
 
