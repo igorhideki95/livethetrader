@@ -35,7 +35,7 @@ class TradingSignalService:
         self.source = self._build_source(message_stream_factory=message_stream_factory)
         self.builder = MultiTimeframeCandleBuilder(symbol=symbol)
         self.indicators = IndicatorService()
-        self.engine = SignalEngine()
+        self.engine = SignalEngine(config=self.config)
 
     def _build_source(
         self,

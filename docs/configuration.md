@@ -22,8 +22,8 @@ O carregamento ocorre pelo módulo `livethetrader.config`:
 | `LTT_INTERFACE_HISTORY_LIMIT` | `20` | Quantidade máxima de histórico em memória da interface. |
 | `LTT_DASHBOARD_BASE_URL` | `http://127.0.0.1:8000` | Endpoint base para coleta do dashboard. |
 | `LTT_PROVIDER_ENDPOINT` | _vazio_ | Endpoint do provedor de mercado (REST/WS). |
-| `LTT_CONFIDENCE_MIN` | `0.55` | Threshold mínimo de confiança para observabilidade de sinal. |
-| `LTT_RISK_REJECTION_MAX` | `0.45` | Threshold de rejeição de risco monitorado em runtime. |
+| `LTT_CONFIDENCE_MIN` | `0.55` | Threshold mínimo de confiança para aprovação de risco (`RiskManager`). |
+| `LTT_RISK_REJECTION_MAX` | `0.45` | Limite de rejeição dura do risco: sinais com confiança `<=` esse valor são bloqueados. |
 | `LTT_LOG_LEVEL` | `INFO` | Nível global de log (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 | `LTT_LOG_SERVICE_NAME` | `livethetrader` | Nome de serviço incluído no JSON de log. |
 
@@ -58,3 +58,11 @@ Exemplo:
 
 - `tests/conftest.py` aplica `configure_logging(...)` no início da sessão de testes.
 - Os módulos `api`, `interface`, `ingestion`, `signal_engine` e `backtest` emitem eventos via logger central (`log_event`).
+
+## Semântica dos thresholds de risco
+
+No `RiskManager`, os thresholds são aplicados em duas faixas:
+
+- `confidence <= risk_rejection_max`: bloqueio imediato com motivo `confidence_below_rejection_threshold`.
+- `risk_rejection_max < confidence < confidence_min`: bloqueio com motivo `confidence_below_threshold`.
+- `confidence >= confidence_min`: risco aprovado (`risk_ok`).
