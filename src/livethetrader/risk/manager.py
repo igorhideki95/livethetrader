@@ -6,9 +6,9 @@ from livethetrader.models import Direction
 class RiskManager:
     def __init__(
         self,
-        min_confidence: float,
-        rejection_confidence_max: float,
-    ):
+        min_confidence: float = 0.6,
+        rejection_confidence_max: float = 0.45,
+    ) -> None:
         self.min_confidence = min_confidence
         self.rejection_confidence_max = rejection_confidence_max
 
