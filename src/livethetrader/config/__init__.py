@@ -4,6 +4,7 @@ from livethetrader.config.settings import (
     ProviderSettingsConfig,
     LimitsConfig,
     LoggingConfig,
+    MLConfig,
     ThresholdsConfig,
     load_config,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "LimitsConfig",
     "ProviderSettingsConfig",
     "LoggingConfig",
+    "MLConfig",
     "ThresholdsConfig",
     "load_config",
 ]

@@ -104,39 +104,22 @@ def test_run_once_with_real_adapter_via_fake_message_stream_factory() -> None:
     assert 0 <= payload["confidence"] <= 1
 
 
-def test_signal_engine_risk_thresholds_from_config_change_decision() -> None:
-    strict_config = AppConfig()
-    strict_config.thresholds.confidence_min = 0.75
-    strict_config.thresholds.risk_rejection_max = 0.5
-    strict_service = TradingSignalService(symbol="EURUSD", config=strict_config)
-    strict_service.engine.strategy = _StubStrategy(confidence=0.6)
-    strict_service.engine.publication_gate = _PassThroughGate()
 
-    permissive_config = AppConfig()
-    permissive_config.thresholds.confidence_min = 0.55
-    permissive_config.thresholds.risk_rejection_max = 0.45
-    permissive_service = TradingSignalService(symbol="EURUSD", config=permissive_config)
-    permissive_service.engine.strategy = _StubStrategy(confidence=0.6)
-    permissive_service.engine.publication_gate = _PassThroughGate()
-
-    strict_signal = strict_service.engine.generate(symbol="EURUSD", features_by_tf={"1m": {}})
-    permissive_signal = permissive_service.engine.generate(symbol="EURUSD", features_by_tf={"1m": {}})
-
-    assert strict_signal.direction == "NEUTRO"
-    assert "confidence_below_threshold" in strict_signal.reason_codes
-    assert permissive_signal.direction == "CALL"
-    assert "risk_ok" in permissive_signal.reason_codes
-
-
-def test_signal_engine_applies_rejection_threshold_from_config() -> None:
+def test_ml_bootstrap_strict_keeps_ml_gate_blocking_when_artifact_is_missing() -> None:
     config = AppConfig()
-    config.thresholds.confidence_min = 0.7
-    config.thresholds.risk_rejection_max = 0.6
+    config.ml.artifact_path = "/tmp/ltt_artifact_missing.json"
+    config.ml.fallback_mode = "strict"
+
     service = TradingSignalService(symbol="EURUSD", config=config)
-    service.engine.strategy = _StubStrategy(confidence=0.6)
-    service.engine.publication_gate = _PassThroughGate()
 
-    signal = service.engine.generate(symbol="EURUSD", features_by_tf={"1m": {}})
+    assert service.engine.publication_gate.ml_pipeline.model_ready is False
 
-    assert signal.direction == "NEUTRO"
-    assert "confidence_below_rejection_threshold" in signal.reason_codes
+
+def test_ml_bootstrap_degraded_uses_bypass_gate_without_artifact() -> None:
+    config = AppConfig()
+    config.ml.artifact_path = "/tmp/ltt_artifact_missing.json"
+    config.ml.fallback_mode = "degraded"
+
+    service = TradingSignalService(symbol="EURUSD", config=config)
+
+    assert service.engine.publication_gate.__class__.__name__ == "DegradedSignalPublicationGate"

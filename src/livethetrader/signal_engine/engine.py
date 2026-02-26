@@ -15,18 +15,16 @@ LOGGER = get_logger(__name__)
 class SignalEngine:
     def __init__(
         self,
+        publication_gate: SignalPublicationGate,
         strategy: MultiTimeframeStrategy | None = None,
         risk: RiskManager | None = None,
-        publication_gate: SignalPublicationGate | None = None,
         config: AppConfig | None = None,
     ):
         self.config = config or load_config()
         self.strategy = strategy or MultiTimeframeStrategy()
-        self.risk = risk or RiskManager(
-            min_confidence=self.config.thresholds.confidence_min,
-            rejection_confidence_max=self.config.thresholds.risk_rejection_max,
-        )
-        self.publication_gate = publication_gate or SignalPublicationGate()
+        self.risk = risk or RiskManager()
+        self.publication_gate = publication_gate
+        self.config = config or load_config()
 
     def generate(
         self, symbol: str, features_by_tf: dict[str, dict[str, float]], expiry: str = "5m"

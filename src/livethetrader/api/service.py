@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 from livethetrader.config import AppConfig, load_config
@@ -11,10 +12,36 @@ from livethetrader.ingestion.mock_source import MockTickSource
 from livethetrader.ingestion.real_adapter import ProviderConfig, RealTickSourceAdapter
 from livethetrader.logging import configure_logging, get_logger, log_event
 from livethetrader.market_data.aggregator import MultiTimeframeCandleBuilder
-from livethetrader.models import Tick
+from livethetrader.ml import MLPipeline, SignalPublicationGate
+from livethetrader.models import Direction, Tick
 from livethetrader.signal_engine.engine import SignalEngine
 
 LOGGER = get_logger(__name__)
+
+
+class DegradedSignalPublicationGate(SignalPublicationGate):
+    """Fallback gate that bypasses ML checks while preserving strategy+risk guards."""
+
+    def __init__(self) -> None:
+        super().__init__(ml_pipeline=MLPipeline())
+
+    def approve(
+        self,
+        *,
+        strategy_direction: Direction,
+        risk_direction: Direction,
+        features: dict[str, float],
+    ) -> tuple[Direction, float, list[str]]:
+        _ = features
+        reasons: list[str] = []
+        if strategy_direction == "NEUTRO":
+            return "NEUTRO", 0.0, ["strategy_rules_block"]
+        reasons.append("strategy_rules_pass")
+
+        if risk_direction == "NEUTRO":
+            return "NEUTRO", 0.0, reasons + ["risk_guard_block"]
+
+        return risk_direction, 1.0, reasons + ["risk_guard_pass", "ml_gate_degraded_bypass"]
 
 
 class TradingSignalService:
@@ -35,7 +62,60 @@ class TradingSignalService:
         self.source = self._build_source(message_stream_factory=message_stream_factory)
         self.builder = MultiTimeframeCandleBuilder(symbol=symbol)
         self.indicators = IndicatorService()
-        self.engine = SignalEngine(config=self.config)
+        publication_gate = self._bootstrap_publication_gate()
+        self.engine = SignalEngine(publication_gate=publication_gate, config=self.config)
+
+    def _bootstrap_publication_gate(self) -> SignalPublicationGate:
+        pipeline = MLPipeline()
+        artifact_path = self.config.ml.artifact_path.strip()
+        fallback_mode = self.config.ml.fallback_mode.strip().lower() or "strict"
+
+        if fallback_mode not in {"strict", "degraded"}:
+            log_event(
+                LOGGER,
+                "ml_fallback_mode_invalid",
+                fallback_mode=fallback_mode,
+                fallback_mode_applied="strict",
+            )
+            fallback_mode = "strict"
+
+        if artifact_path:
+            loaded = pipeline.load_artifact(artifact_path)
+            if loaded:
+                log_event(LOGGER, "ml_artifact_loaded", artifact_path=artifact_path)
+                return SignalPublicationGate(ml_pipeline=pipeline)
+
+            path_exists = Path(artifact_path).exists()
+            log_event(
+                LOGGER,
+                "ml_artifact_load_failed",
+                artifact_path=artifact_path,
+                failure_kind="corrupted_or_invalid" if path_exists else "missing",
+            )
+        else:
+            log_event(
+                LOGGER,
+                "ml_artifact_load_failed",
+                artifact_path=artifact_path,
+                failure_kind="missing",
+            )
+
+        if fallback_mode == "degraded":
+            log_event(
+                LOGGER,
+                "ml_fallback_applied",
+                fallback_mode="degraded",
+                behavior="allow_signal_without_ml_gate",
+            )
+            return DegradedSignalPublicationGate()
+
+        log_event(
+            LOGGER,
+            "ml_fallback_applied",
+            fallback_mode="strict",
+            behavior="block_signal_until_ml_artifact_is_loaded",
+        )
+        return SignalPublicationGate(ml_pipeline=pipeline)
 
     def _build_source(
         self,
