@@ -83,3 +83,24 @@ def test_run_once_with_real_adapter_via_fake_message_stream_factory() -> None:
 
     assert payload["direction"] in {"CALL", "PUT", "NEUTRO"}
     assert 0 <= payload["confidence"] <= 1
+
+
+
+def test_ml_bootstrap_strict_keeps_ml_gate_blocking_when_artifact_is_missing() -> None:
+    config = AppConfig()
+    config.ml.artifact_path = "/tmp/ltt_artifact_missing.json"
+    config.ml.fallback_mode = "strict"
+
+    service = TradingSignalService(symbol="EURUSD", config=config)
+
+    assert service.engine.publication_gate.ml_pipeline.model_ready is False
+
+
+def test_ml_bootstrap_degraded_uses_bypass_gate_without_artifact() -> None:
+    config = AppConfig()
+    config.ml.artifact_path = "/tmp/ltt_artifact_missing.json"
+    config.ml.fallback_mode = "degraded"
+
+    service = TradingSignalService(symbol="EURUSD", config=config)
+
+    assert service.engine.publication_gate.__class__.__name__ == "DegradedSignalPublicationGate"

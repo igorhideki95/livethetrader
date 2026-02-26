@@ -39,6 +39,12 @@ class LoggingConfig:
 
 
 @dataclass(slots=True)
+class MLConfig:
+    artifact_path: str = ""
+    fallback_mode: str = "strict"
+
+
+@dataclass(slots=True)
 class AppConfig:
     symbols: list[str] = field(default_factory=lambda: ["EURUSD"])
     timeframes: list[str] = field(default_factory=lambda: ["1m", "5m", "15m"])
@@ -48,6 +54,7 @@ class AppConfig:
     provider: ProviderSettingsConfig = field(default_factory=ProviderSettingsConfig)
     thresholds: ThresholdsConfig = field(default_factory=ThresholdsConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    ml: MLConfig = field(default_factory=MLConfig)
 
 
 ENV_CONFIG_PATH = "LTT_CONFIG_FILE"
@@ -126,6 +133,13 @@ def _apply_mapping_overrides(config: AppConfig, payload: dict[str, Any]) -> None
         if "service_name" in logging:
             config.logging.service_name = str(logging["service_name"])
 
+    ml = payload.get("ml")
+    if isinstance(ml, dict):
+        if "artifact_path" in ml:
+            config.ml.artifact_path = str(ml["artifact_path"])
+        if "fallback_mode" in ml:
+            config.ml.fallback_mode = str(ml["fallback_mode"])
+
 
 def _apply_env_overrides(config: AppConfig) -> None:
     if symbols := os.getenv("LTT_SYMBOLS"):
@@ -170,6 +184,11 @@ def _apply_env_overrides(config: AppConfig) -> None:
         config.logging.level = log_level.upper()
     if log_service := os.getenv("LTT_LOG_SERVICE_NAME"):
         config.logging.service_name = log_service
+
+    if ml_artifact_path := os.getenv("LTT_ML_ARTIFACT_PATH"):
+        config.ml.artifact_path = ml_artifact_path
+    if ml_fallback_mode := os.getenv("LTT_ML_FALLBACK_MODE"):
+        config.ml.fallback_mode = ml_fallback_mode
 
 
 def _as_list(value: Any) -> list[str]:

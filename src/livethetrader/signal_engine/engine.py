@@ -15,14 +15,14 @@ LOGGER = get_logger(__name__)
 class SignalEngine:
     def __init__(
         self,
+        publication_gate: SignalPublicationGate,
         strategy: MultiTimeframeStrategy | None = None,
         risk: RiskManager | None = None,
-        publication_gate: SignalPublicationGate | None = None,
         config: AppConfig | None = None,
     ):
         self.strategy = strategy or MultiTimeframeStrategy()
         self.risk = risk or RiskManager()
-        self.publication_gate = publication_gate or SignalPublicationGate()
+        self.publication_gate = publication_gate
         self.config = config or load_config()
 
     def generate(
