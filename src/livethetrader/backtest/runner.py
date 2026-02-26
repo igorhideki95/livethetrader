@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from livethetrader.logging import get_logger, log_event
@@ -20,6 +21,14 @@ class TemporalWindow:
 
 
 class BacktestRunner:
+    def __init__(
+        self,
+        profit_factor_normalization: Literal["none", "null", "cap", "flag"] = "null",
+        profit_factor_cap: float = 1_000_000.0,
+    ) -> None:
+        self.profit_factor_normalization = profit_factor_normalization
+        self.profit_factor_cap = profit_factor_cap
+
     def run(
         self,
         symbol: str,
@@ -49,8 +58,9 @@ class BacktestRunner:
             directions=directions,
             windows=default_windows,
         )
-
+        self._normalize_simulation_profit_factors(simulation)
         aggregate = simulation["aggregate"]
+
         report = {
             "schema_version": SCHEMA_VERSION,
             "report_version": report_version,
@@ -74,6 +84,8 @@ class BacktestRunner:
             "comparison_by_market_regime": simulation["comparison_by_market_regime"],
             "generated_at": to_utc_iso(datetime.now(timezone.utc)),
         }
+        if "profit_factor_is_infinite" in aggregate:
+            report["profit_factor_is_infinite"] = aggregate["profit_factor_is_infinite"]
         report["report_path"] = self.save_report(report, output_dir=report_output_dir)
 
         log_event(
@@ -169,6 +181,36 @@ class BacktestRunner:
             "comparison_by_market_regime": comparison_by_market_regime,
         }
 
+    def _normalize_profit_factor(self, profit_factor: float) -> dict:
+        is_infinite = profit_factor == float("inf")
+        if not is_infinite:
+            return {"profit_factor": profit_factor}
+
+        if self.profit_factor_normalization == "null":
+            return {"profit_factor": None}
+        if self.profit_factor_normalization == "cap":
+            return {"profit_factor": round(self.profit_factor_cap, 6)}
+        if self.profit_factor_normalization == "flag":
+            return {
+                "profit_factor": round(self.profit_factor_cap, 6),
+                "profit_factor_is_infinite": True,
+            }
+        return {"profit_factor": profit_factor}
+
+    def _normalize_metrics_profit_factor(self, metrics: dict) -> dict:
+        normalized = self._normalize_profit_factor(metrics["profit_factor"])
+        metrics["profit_factor"] = normalized["profit_factor"]
+        if "profit_factor_is_infinite" in normalized:
+            metrics["profit_factor_is_infinite"] = normalized["profit_factor_is_infinite"]
+        return metrics
+
+    def _normalize_simulation_profit_factors(self, simulation: dict) -> None:
+        for window in simulation["windows"]:
+            self._normalize_metrics_profit_factor(window)
+        self._normalize_metrics_profit_factor(simulation["aggregate"])
+        for metrics in simulation["comparison_by_market_regime"].values():
+            self._normalize_metrics_profit_factor(metrics)
+
     def _market_regime(self, candles: list[Candle], idx: int, lookback: int = 8) -> str:
         if idx < lookback:
             return "sideways"
@@ -215,5 +257,8 @@ class BacktestRunner:
         report_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         path = report_dir / f"backtest_{timestamp}_{report['report_id']}.json"
-        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False),
+            encoding="utf-8",
+        )
         return str(path)

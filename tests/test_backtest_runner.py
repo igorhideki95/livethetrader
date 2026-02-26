@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -75,3 +77,50 @@ def test_deploy_gate_blocks_strategy_below_dod_baseline():
 
     with pytest.raises(DeploymentBlockedError):
         gate.validate(bad_report)
+
+
+@pytest.mark.parametrize(
+    ("normalization", "expected_profit_factor", "expected_flag"),
+    [
+        ("null", None, None),
+        ("cap", 123.0, None),
+        ("flag", 123.0, True),
+    ],
+)
+def test_backtest_runner_normalizes_infinite_profit_factor_and_saves_strict_json(
+    tmp_path, normalization, expected_profit_factor, expected_flag
+):
+    closes = [1.0, 1.001, 1.002, 1.003, 1.004]
+    directions = ["CALL", "CALL", "CALL", "CALL"]
+    candles = _build_candles("EURUSD", "1m", closes)
+
+    runner = BacktestRunner(profit_factor_normalization=normalization, profit_factor_cap=123.0)
+    report = runner.run(
+        symbol="EURUSD",
+        candles=candles,
+        directions=directions,
+        report_output_dir=str(tmp_path / "reports"),
+    )
+
+    assert report["profit_factor"] == expected_profit_factor
+    assert (
+        report["comparison_by_asset_timeframe"]["EURUSD:1m"]["profit_factor"]
+        == expected_profit_factor
+    )
+
+    if expected_flag is None:
+        assert "profit_factor_is_infinite" not in report
+    else:
+        assert report["profit_factor_is_infinite"] is expected_flag
+        assert (
+            report["comparison_by_asset_timeframe"]["EURUSD:1m"]["profit_factor_is_infinite"]
+            is expected_flag
+        )
+
+    saved_payload = Path(report["report_path"]).read_text(encoding="utf-8")
+    decoded = json.loads(saved_payload)
+    assert decoded["profit_factor"] == expected_profit_factor
+    assert all(
+        window["profit_factor"] == expected_profit_factor
+        for window in decoded["temporal_windows"]
+    )
