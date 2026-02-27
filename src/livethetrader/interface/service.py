@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Any
 from datetime import datetime, timezone
+from typing import Any
 
+from livethetrader.dashboard import DASHBOARD_SCHEMA_VERSION
 from livethetrader.interface.client import BackendPollingClient, PollResult
 from livethetrader.interface.models import DashboardSnapshot
 from livethetrader.logging import get_logger, log_event
@@ -41,7 +42,10 @@ class InterfaceService:
         return snapshot, None
 
 
-def build_local_dashboard_payload(signal_contract: dict[str, Any], system_status: str = "running") -> dict[str, Any]:
+def build_local_dashboard_payload(
+    signal_contract: dict[str, Any],
+    system_status: str = "running",
+) -> dict[str, Any]:
     """Utility to expose current backend signal in canonical dashboard format for local runs."""
 
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -61,6 +65,7 @@ def build_local_dashboard_payload(signal_contract: dict[str, Any], system_status
     ]
 
     return {
+        "schema_version": DASHBOARD_SCHEMA_VERSION,
         "status": system_status.lower(),
         "updated_at": now,
         "current_signal": {
@@ -88,6 +93,7 @@ def build_local_dashboard_payload(signal_contract: dict[str, Any], system_status
             "win_rate": 0.0,
             "profit_factor": 0.0,
             "drawdown": 0.0,
+            "trades_total": len(history),
             "trades": len(history),
             "expectancy": 0.0,
             "equity_curve": [

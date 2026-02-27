@@ -25,6 +25,7 @@ def test_get_dashboard_matches_ui_contract() -> None:
         status, payload = _request_json(base_url, "GET", "/api/v1/dashboard")
 
         assert status == 200
+        assert payload["schema_version"] == "1.0.0"
         assert payload["status"] in {"running", "online", "paused", "offline"}
         assert isinstance(payload["updated_at"], str)
         assert set(payload["current_signal"]) >= {"direction", "confidence", "timestamp"}
@@ -36,6 +37,7 @@ def test_get_dashboard_matches_ui_contract() -> None:
             "win_rate",
             "profit_factor",
             "drawdown",
+            "trades_total",
             "trades",
             "expectancy",
             "equity_curve",
@@ -43,7 +45,7 @@ def test_get_dashboard_matches_ui_contract() -> None:
 
         adapted = DashboardSnapshot.from_payload(payload)
         assert adapted.last_signal == payload["current_signal"]["direction"]
-        assert adapted.metrics.trades_total == payload["metrics"]["trades"]
+        assert adapted.metrics.trades_total == payload["metrics"]["trades_total"]
     finally:
         server.shutdown()
         server.server_close()
