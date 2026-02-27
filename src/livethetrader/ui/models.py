@@ -54,6 +54,10 @@ class DashboardMetrics:
 
 @dataclass(slots=True)
 class DashboardSnapshot:
+    schema_version: str
+    symbol: str
+    timeframe: str
+    system_status: str
     status: str
     updated_at: str
     current_signal: CurrentSignal
@@ -123,6 +127,10 @@ def build_snapshot(payload: dict[str, Any]) -> DashboardSnapshot:
     )
 
     snapshot = DashboardSnapshot(
+        schema_version=str(normalized.get("schema_version") or "1.0.0"),
+        symbol=str(normalized.get("symbol") or "UNKNOWN"),
+        timeframe=str(normalized.get("timeframe") or "unknown"),
+        system_status=str(normalized.get("system_status") or normalized.get("status") or "OFFLINE"),
         status=str(normalized.get("status") or "offline"),
         updated_at=str(normalized.get("updated_at") or datetime.now(timezone.utc).isoformat()),
         current_signal=signal,
