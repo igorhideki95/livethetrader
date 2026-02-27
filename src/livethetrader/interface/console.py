@@ -1,66 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import json
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 
-from livethetrader.api.service import TradingSignalService
+from livethetrader.api.http_server import create_dashboard_http_server, shutdown_dashboard_http_server
 from livethetrader.config import load_config
 from livethetrader.interface.client import BackendPollingClient
 from livethetrader.interface.models import DashboardSnapshot
-from livethetrader.interface.service import InterfaceService, build_local_dashboard_payload
+from livethetrader.interface.service import InterfaceService
 from livethetrader.logging import configure_logging, get_logger, log_event
 
 LOGGER = get_logger(__name__)
 
-_CONTROL_MESSAGES = {
-    "start": "Sistema iniciado.",
-    "pause": "Sistema pausado.",
-    "restart": "Sistema reiniciado.",
-    "reload-config": "Configuração recarregada.",
-}
-
-
-class _LocalDashboardHandler(BaseHTTPRequestHandler):
-    service = TradingSignalService(symbol="EURUSD")
-
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path != "/api/v1/dashboard":
-            self.send_response(404)
-            self.end_headers()
-            return
-
-        signal = self.service.run_once(tick_count=6000)
-        payload = build_local_dashboard_payload(signal_contract=signal)
-        self._send_json(200, payload)
-
-    def do_POST(self) -> None:  # noqa: N802
-        if not self.path.startswith("/api/v1/dashboard/control/"):
-            self.send_response(404)
-            self.end_headers()
-            return
-
-        action = self.path.rsplit("/", 1)[-1]
-        if action not in _CONTROL_MESSAGES:
-            payload = {"ok": False, "message": f"Ação não suportada: {action}"}
-            self._send_json(404, payload)
-            return
-
-        payload = {"ok": True, "message": _CONTROL_MESSAGES[action]}
-        self._send_json(200, payload)
-
-    def _send_json(self, status_code: int, payload: dict) -> None:
-        body = json.dumps(payload).encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, format: str, *args) -> None:  # noqa: A003
-        return
 
 
 def render_snapshot(snapshot: DashboardSnapshot) -> str:
@@ -112,7 +65,7 @@ def run_interface(base_url: str, interval: float = 2.0) -> None:
 
 
 def _start_local_server(port: int) -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer(("127.0.0.1", port), _LocalDashboardHandler)
+    server = create_dashboard_http_server("127.0.0.1", port)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
@@ -139,6 +92,7 @@ def main() -> None:
     finally:
         if server:
             server.shutdown()
+            shutdown_dashboard_http_server(server)
             log_event(LOGGER, "local_backend_shutdown")
 
 
