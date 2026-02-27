@@ -107,6 +107,26 @@ Exemplo:
 - `LTT_RISK_REJECTION_MAX`
 - `LTT_LOG_LEVEL`
 - `LTT_LOG_SERVICE_NAME`
+- `LTT_ML_ARTIFACT_PATH` (caminho para artefato JSON treinado offline)
+- `LTT_ML_FALLBACK_MODE` (`strict` ou `degraded`)
+
+
+### 3) Configuração operacional de ML por ambiente
+
+Defina explicitamente o artefato e o modo de fallback:
+
+```bash
+export LTT_ML_ARTIFACT_PATH=artifacts/ml/signal-gate-prod-20260101T120000Z.json
+export LTT_ML_FALLBACK_MODE=strict
+```
+
+Política recomendada:
+
+- **dev**: `LTT_ML_FALLBACK_MODE=degraded` para não bloquear desenvolvimento local quando o artefato estiver ausente.
+- **staging**: preferir `strict`; usar `degraded` apenas em testes controlados de resiliência.
+- **prod**: **sempre `strict`** para bloquear publicação de sinal sem gate ML carregado.
+
+Quando o artefato não é carregado, o serviço registra `ml_fallback_applied` e, em modo degradado, cada sinal aprovado registra `ml_gate_degraded_bypass_active` para monitoramento de bypass ativo.
 
 ## Como usar
 
@@ -138,6 +158,19 @@ python -m livethetrader.interface.console --base-url http://127.0.0.1:8000 --pol
 export DASHBOARD_API_URL="http://127.0.0.1:8000"
 streamlit run ui/app.py
 ```
+
+
+### Treinar e versionar artefato ML offline
+
+1. Prepare um dataset supervisionado (`.json` lista de objetos ou `.jsonl`) com campos compatíveis com `MLPipeline.build_sample`:
+   - `timestamp`, `direction`, `base_features`, `entry_close`, `future_close`.
+2. Execute o treinamento com split temporal automático e persistência versionada:
+
+```bash
+ltt-train-ml --dataset data/supervised_rows.jsonl --artifact-dir artifacts/ml --artifact-prefix signal-gate --version-tag staging
+```
+
+O comando executa: montagem do dataset supervisionado -> `temporal_split` -> `train` -> `save_artifact(...)`, e imprime o caminho final do artefato gerado.
 
 ## Backtest e gate de deploy
 

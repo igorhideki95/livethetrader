@@ -196,6 +196,24 @@ class MLPipeline:
         self.model_ready = True
         return True
 
+    def save_artifact(self, artifact_path: str | Path) -> Path:
+        path = Path(artifact_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "model": {
+                "weights": {
+                    str(name): float(weight) for name, weight in self.model._weights.items()
+                },
+                "bias": float(self.model._bias),
+            },
+            "calibrator": {
+                "a": float(self.calibrator.a),
+                "b": float(self.calibrator.b),
+            },
+        }
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return path
+
     def predict_probability(self, features: dict[str, float]) -> float:
         if not self.model_ready:
             return 0.0
