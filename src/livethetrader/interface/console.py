@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Callable, TextIO
 
 from livethetrader.api.service import TradingSignalService
 from livethetrader.config import load_config
@@ -92,23 +94,51 @@ def render_snapshot(snapshot: DashboardSnapshot) -> str:
     return "\n".join(lines)
 
 
-def run_interface(base_url: str, interval: float = 2.0) -> None:
-    client = BackendPollingClient(base_url=base_url)
-    interface = InterfaceService(client=client)
+def _print_terminal_snapshot(snapshot: DashboardSnapshot, output_stream: TextIO) -> None:
+    output_stream.write("\033[2J\033[H")
+    output_stream.write(render_snapshot(snapshot))
+    output_stream.write("\n")
+    output_stream.flush()
+
+
+def run_interface(
+    base_url: str,
+    interval: float = 2.0,
+    *,
+    render_terminal: bool = True,
+    output_stream: TextIO | None = None,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    interface_service: InterfaceService | None = None,
+    max_iterations: int | None = None,
+) -> None:
+    interface = interface_service or InterfaceService(client=BackendPollingClient(base_url=base_url))
+    stream = output_stream or sys.stdout
+    iterations = 0
 
     while True:
+        if max_iterations is not None and iterations >= max_iterations:
+            break
         snapshot, error = interface.fetch_snapshot()
         if error:
             log_event(LOGGER, "interface_loop_error", level=40, error=error)
+            sleep_fn(interval)
+            iterations += 1
             continue
 
         if snapshot:
             log_event(
                 LOGGER,
-                "interface_snapshot_rendered",
-                rendered_snapshot=render_snapshot(snapshot),
+                "interface_snapshot_received",
+                symbol=snapshot.symbol,
+                timeframe=snapshot.timeframe,
+                last_signal=snapshot.last_signal,
+                confidence=snapshot.confidence,
+                status=snapshot.system_status,
             )
-        time.sleep(interval)
+            if render_terminal:
+                _print_terminal_snapshot(snapshot=snapshot, output_stream=stream)
+        sleep_fn(interval)
+        iterations += 1
 
 
 def _start_local_server(port: int) -> ThreadingHTTPServer:
@@ -127,7 +157,23 @@ def main() -> None:
     parser.add_argument("--poll-interval", type=float, default=config.poll_interval_seconds)
     parser.add_argument("--local-backend", action="store_true", help="Run a local mock backend")
     parser.add_argument("--backend-port", type=int, default=8000)
+    parser.add_argument(
+        "--log-only",
+        action="store_true",
+        help="Desativa dashboard ANSI no terminal e mantém apenas logs estruturados.",
+    )
+    parser.add_argument(
+        "--terminal-dashboard",
+        action="store_true",
+        help="Força renderização do dashboard ANSI no terminal.",
+    )
     args = parser.parse_args()
+
+    render_terminal = True
+    if args.log_only:
+        render_terminal = False
+    if args.terminal_dashboard:
+        render_terminal = True
 
     server = None
     try:
@@ -135,7 +181,7 @@ def main() -> None:
             server = _start_local_server(args.backend_port)
             args.base_url = f"http://127.0.0.1:{args.backend_port}"
             log_event(LOGGER, "local_backend_started", base_url=args.base_url)
-        run_interface(base_url=args.base_url, interval=args.poll_interval)
+        run_interface(base_url=args.base_url, interval=args.poll_interval, render_terminal=render_terminal)
     finally:
         if server:
             server.shutdown()
