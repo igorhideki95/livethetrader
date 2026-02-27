@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import threading
 import time
+from collections.abc import Callable
 from http.server import ThreadingHTTPServer
+from typing import Protocol, TextIO
 
-from livethetrader.api.http_server import create_dashboard_http_server, shutdown_dashboard_http_server
+from livethetrader.api.http_server import (
+    create_dashboard_http_server,
+    shutdown_dashboard_http_server,
+)
 from livethetrader.config import load_config
 from livethetrader.interface.client import BackendPollingClient
 from livethetrader.interface.models import DashboardSnapshot
@@ -14,6 +20,10 @@ from livethetrader.logging import configure_logging, get_logger, log_event
 
 LOGGER = get_logger(__name__)
 
+
+class SupportsFetchSnapshot(Protocol):
+    def fetch_snapshot(self) -> tuple[DashboardSnapshot | None, str | None]:
+        ...
 
 
 def render_snapshot(snapshot: DashboardSnapshot) -> str:
@@ -59,10 +69,12 @@ def run_interface(
     render_terminal: bool = True,
     output_stream: TextIO | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
-    interface_service: InterfaceService | None = None,
+    interface_service: SupportsFetchSnapshot | None = None,
     max_iterations: int | None = None,
 ) -> None:
-    interface = interface_service or InterfaceService(client=BackendPollingClient(base_url=base_url))
+    interface = interface_service or InterfaceService(
+        client=BackendPollingClient(base_url=base_url)
+    )
     stream = output_stream or sys.stdout
     iterations = 0
 
@@ -132,7 +144,11 @@ def main() -> None:
             server = _start_local_server(args.backend_port)
             args.base_url = f"http://127.0.0.1:{args.backend_port}"
             log_event(LOGGER, "local_backend_started", base_url=args.base_url)
-        run_interface(base_url=args.base_url, interval=args.poll_interval, render_terminal=render_terminal)
+        run_interface(
+            base_url=args.base_url,
+            interval=args.poll_interval,
+            render_terminal=render_terminal,
+        )
     finally:
         if server:
             server.shutdown()

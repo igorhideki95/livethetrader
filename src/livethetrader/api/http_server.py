@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Literal
+from typing import Literal, cast
 
 from livethetrader.api.service import TradingSignalService
 from livethetrader.ui.models import (
@@ -18,7 +18,7 @@ from livethetrader.ui.models import (
     HistoryTrade,
 )
 
-ControlAction = Literal["start", "pause", "restart"]
+ControlAction = Literal["start", "pause", "restart", "reload-config"]
 
 
 class DashboardState:
@@ -77,7 +77,11 @@ class DashboardState:
 
         with self._lock:
             self.updated_at = _utc_now()
-            self.current_signal = CurrentSignal(direction=direction, confidence=confidence, timestamp=ts)
+            self.current_signal = CurrentSignal(
+                direction=direction,
+                confidence=confidence,
+                timestamp=ts,
+            )
             self.candles = [*self.candles[-49:], candle]
             self.history = [*self.history[-99:], trade]
             self._equity += pnl
@@ -97,9 +101,16 @@ class DashboardState:
 
 
 class DashboardProcessingLoop:
-    def __init__(self, state: DashboardState, service: TradingSignalService, tick_count: int = 300, cycle_interval: float = 0.2) -> None:
+    def __init__(
+        self,
+        state: DashboardState,
+        service: TradingSignalService,
+        tick_count: int = 300,
+        cycle_interval: float = 0.2,
+    ) -> None:
         self.state = state
         self.service = service
+        self._service_lock = threading.Lock()
         self.tick_count = tick_count
         self.cycle_interval = cycle_interval
         self._running = threading.Event()
@@ -109,6 +120,11 @@ class DashboardProcessingLoop:
         self._worker.start()
 
     def control(self, action: ControlAction) -> str:
+        if action == "reload-config":
+            with self._service_lock:
+                self.service = TradingSignalService(symbol=self.state.symbol)
+            return "Configuração recarregada."
+
         if action == "start":
             self._running.set()
             self.state.set_status("running")
@@ -134,12 +150,19 @@ class DashboardProcessingLoop:
             if not self._running.wait(timeout=0.1):
                 continue
 
-            signal = self.service.run_once(tick_count=self.tick_count)
+            with self._service_lock:
+                active_service = self.service
+            signal = active_service.run_once(tick_count=self.tick_count)
             self.state.apply_signal(signal)
             time.sleep(self.cycle_interval)
 
 
-def create_dashboard_http_server(host: str, port: int, tick_count: int = 300, cycle_interval: float = 0.2) -> ThreadingHTTPServer:
+def create_dashboard_http_server(
+    host: str,
+    port: int,
+    tick_count: int = 300,
+    cycle_interval: float = 0.2,
+) -> ThreadingHTTPServer:
     state = DashboardState()
     loop = DashboardProcessingLoop(
         state=state,
@@ -163,12 +186,15 @@ def create_dashboard_http_server(host: str, port: int, tick_count: int = 300, cy
                 return
 
             action = self.path.rsplit("/", 1)[-1]
-            if action not in {"start", "pause", "restart"}:
+            if action not in {"start", "pause", "restart", "reload-config"}:
                 self._send_json(404, {"ok": False, "message": f"Ação não suportada: {action}"})
                 return
 
-            message = loop.control(action)  # type: ignore[arg-type]
-            self._send_json(200, {"ok": True, "message": message, "status": state.to_payload()["status"]})
+            message = loop.control(cast(ControlAction, action))
+            self._send_json(
+                200,
+                {"ok": True, "message": message, "status": state.to_payload()["status"]},
+            )
 
         def _send_json(self, status_code: int, payload: dict) -> None:
             body = json.dumps(payload).encode("utf-8")

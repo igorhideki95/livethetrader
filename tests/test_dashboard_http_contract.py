@@ -65,6 +65,15 @@ def test_dashboard_control_endpoints_change_processing_state() -> None:
         restart_status, _ = _request_json(base_url, "POST", "/api/v1/dashboard/control/restart")
         assert restart_status == 200
 
+        reload_status, reload_payload = _request_json(
+            base_url,
+            "POST",
+            "/api/v1/dashboard/control/reload-config",
+        )
+        assert reload_status == 200
+        assert reload_payload["ok"] is True
+        assert reload_payload["message"] == "Configuração recarregada."
+
         time.sleep(0.5)
         _, restarted_payload = _request_json(base_url, "GET", "/api/v1/dashboard")
         assert restarted_payload["status"] == "running"
