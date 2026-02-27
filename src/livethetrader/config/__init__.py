@@ -1,10 +1,10 @@
 from livethetrader.config.settings import (
     AppConfig,
     EndpointsConfig,
-    ProviderSettingsConfig,
     LimitsConfig,
     LoggingConfig,
     MLConfig,
+    ProviderSettingsConfig,
     ThresholdsConfig,
     load_config,
 )
