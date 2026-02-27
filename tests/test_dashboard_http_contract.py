@@ -27,12 +27,21 @@ def test_get_dashboard_matches_ui_contract() -> None:
         status, payload = _request_json(base_url, "GET", "/api/v1/dashboard")
 
         assert status == 200
+        assert payload["schema_version"] == "1.0.0"
+        assert payload["symbol"] == "EURUSD"
+        assert payload["timeframe"] == "1m"
         assert payload["status"] in {"running", "paused", "offline", "online"}
+        assert payload["system_status"] == payload["status"].upper()
         assert set(payload["current_signal"]) >= {"direction", "confidence", "timestamp"}
         assert isinstance(payload["candles"], list)
         assert isinstance(payload["history"], list)
+        assert payload["metrics"]["trades_total"] == payload["metrics"]["trades"]
 
         adapted = build_snapshot(payload)
+        assert adapted.schema_version == payload["schema_version"]
+        assert adapted.symbol == payload["symbol"]
+        assert adapted.timeframe == payload["timeframe"]
+        assert adapted.system_status == payload["system_status"]
         assert adapted.status == payload["status"]
         assert adapted.current_signal.direction == payload["current_signal"]["direction"]
     finally:

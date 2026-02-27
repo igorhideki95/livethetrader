@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Literal, cast
 
 from livethetrader.api.service import TradingSignalService
+from livethetrader.dashboard.contract import DASHBOARD_SCHEMA_VERSION
 from livethetrader.ui.models import (
     CandlePoint,
     CurrentSignal,
@@ -89,7 +90,13 @@ class DashboardState:
 
     def to_payload(self) -> dict:
         with self._lock:
+            metrics_payload = asdict(self.metrics)
+            trades_total = int(metrics_payload.get("trades") or 0)
             snapshot = DashboardSnapshot(
+                schema_version=DASHBOARD_SCHEMA_VERSION,
+                symbol=self.symbol,
+                timeframe=self.timeframe,
+                system_status=self.status.upper(),
                 status=self.status,
                 updated_at=self.updated_at or _utc_now(),
                 current_signal=self.current_signal,
@@ -97,7 +104,13 @@ class DashboardState:
                 history=list(self.history),
                 metrics=self.metrics,
             )
-        return asdict(snapshot)
+            payload = asdict(snapshot)
+            payload["metrics"] = {
+                **metrics_payload,
+                "trades_total": trades_total,
+                "trades": trades_total,
+            }
+        return payload
 
 
 class DashboardProcessingLoop:

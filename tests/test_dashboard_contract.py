@@ -56,3 +56,26 @@ def test_normalize_dashboard_payload_rejects_unsupported_schema_version() -> Non
 
     with pytest.raises(DashboardContractError):
         normalize_dashboard_payload(invalid_payload)
+
+
+
+def test_normalize_dashboard_payload_keeps_legacy_payload_compatible() -> None:
+    legacy_payload = {
+        "system_status": "running",
+        "symbol": "GBPUSD",
+        "timeframe": "5m",
+        "last_signal": "CALL",
+        "confidence": 0.67,
+        "timestamp_open": "2026-01-01T10:00:00Z",
+        "metrics": {"trades": 3},
+    }
+
+    normalized = normalize_dashboard_payload(legacy_payload)
+
+    assert normalized["schema_version"] == "1.0.0"
+    assert normalized["status"] == "running"
+    assert normalized["symbol"] == "GBPUSD"
+    assert normalized["timeframe"] == "5m"
+    assert normalized["system_status"] == "RUNNING"
+    assert normalized["metrics"]["trades_total"] == 3
+    assert normalized["metrics"]["trades"] == 3
