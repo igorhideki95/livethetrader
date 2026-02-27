@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Literal
+from typing import Literal, cast
 
 from livethetrader.api.service import TradingSignalService
 from livethetrader.ui.models import (
@@ -18,7 +18,7 @@ from livethetrader.ui.models import (
     HistoryTrade,
 )
 
-ControlAction = Literal["start", "pause", "restart"]
+ControlAction = Literal["start", "pause", "restart", "reload-config"]
 
 
 class DashboardState:
@@ -110,6 +110,7 @@ class DashboardProcessingLoop:
     ) -> None:
         self.state = state
         self.service = service
+        self._service_lock = threading.Lock()
         self.tick_count = tick_count
         self.cycle_interval = cycle_interval
         self._running = threading.Event()
@@ -119,6 +120,11 @@ class DashboardProcessingLoop:
         self._worker.start()
 
     def control(self, action: ControlAction) -> str:
+        if action == "reload-config":
+            with self._service_lock:
+                self.service = TradingSignalService(symbol=self.state.symbol)
+            return "Configuração recarregada."
+
         if action == "start":
             self._running.set()
             self.state.set_status("running")
@@ -144,7 +150,9 @@ class DashboardProcessingLoop:
             if not self._running.wait(timeout=0.1):
                 continue
 
-            signal = self.service.run_once(tick_count=self.tick_count)
+            with self._service_lock:
+                active_service = self.service
+            signal = active_service.run_once(tick_count=self.tick_count)
             self.state.apply_signal(signal)
             time.sleep(self.cycle_interval)
 
@@ -178,7 +186,7 @@ def create_dashboard_http_server(
                 return
 
             action = self.path.rsplit("/", 1)[-1]
-            if action not in {"start", "pause", "restart"}:
+            if action not in {"start", "pause", "restart", "reload-config"}:
                 self._send_json(404, {"ok": False, "message": f"Ação não suportada: {action}"})
                 return
 
