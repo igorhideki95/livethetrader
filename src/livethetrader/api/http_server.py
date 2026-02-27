@@ -77,7 +77,11 @@ class DashboardState:
 
         with self._lock:
             self.updated_at = _utc_now()
-            self.current_signal = CurrentSignal(direction=direction, confidence=confidence, timestamp=ts)
+            self.current_signal = CurrentSignal(
+                direction=direction,
+                confidence=confidence,
+                timestamp=ts,
+            )
             self.candles = [*self.candles[-49:], candle]
             self.history = [*self.history[-99:], trade]
             self._equity += pnl
@@ -97,7 +101,13 @@ class DashboardState:
 
 
 class DashboardProcessingLoop:
-    def __init__(self, state: DashboardState, service: TradingSignalService, tick_count: int = 300, cycle_interval: float = 0.2) -> None:
+    def __init__(
+        self,
+        state: DashboardState,
+        service: TradingSignalService,
+        tick_count: int = 300,
+        cycle_interval: float = 0.2,
+    ) -> None:
         self.state = state
         self.service = service
         self.tick_count = tick_count
@@ -139,7 +149,12 @@ class DashboardProcessingLoop:
             time.sleep(self.cycle_interval)
 
 
-def create_dashboard_http_server(host: str, port: int, tick_count: int = 300, cycle_interval: float = 0.2) -> ThreadingHTTPServer:
+def create_dashboard_http_server(
+    host: str,
+    port: int,
+    tick_count: int = 300,
+    cycle_interval: float = 0.2,
+) -> ThreadingHTTPServer:
     state = DashboardState()
     loop = DashboardProcessingLoop(
         state=state,
@@ -168,7 +183,10 @@ def create_dashboard_http_server(host: str, port: int, tick_count: int = 300, cy
                 return
 
             message = loop.control(action)  # type: ignore[arg-type]
-            self._send_json(200, {"ok": True, "message": message, "status": state.to_payload()["status"]})
+            self._send_json(
+                200,
+                {"ok": True, "message": message, "status": state.to_payload()["status"]},
+            )
 
         def _send_json(self, status_code: int, payload: dict) -> None:
             body = json.dumps(payload).encode("utf-8")
