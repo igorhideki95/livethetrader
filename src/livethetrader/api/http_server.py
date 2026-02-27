@@ -190,7 +190,7 @@ def create_dashboard_http_server(
                 self._send_json(404, {"ok": False, "message": f"Ação não suportada: {action}"})
                 return
 
-            message = loop.control(cast(ControlAction, action))
+            message = loop.control(action)  # type: ignore[arg-type]
             self._send_json(
                 200,
                 {"ok": True, "message": message, "status": state.to_payload()["status"]},
