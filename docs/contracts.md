@@ -21,6 +21,75 @@ Este documento define os contratos canônicos entre módulos para payloads de me
 
 ---
 
+## DashboardSnapshot
+
+Versão atual do contrato canônico do dashboard: `1.0.0`.
+
+### Campos obrigatórios
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `schema_version` | `string` | **Obrigatório**. Deve ser `1.0.0` enquanto não houver nova major suportada. |
+| `status` | `string` | **Obrigatório**. Estado operacional em minúsculo (`running`, `online`, `paused`, `offline`). |
+| `updated_at` | `string (UTC ISO-8601)` | **Obrigatório**. Timestamp da geração do snapshot. |
+| `current_signal` | `object` | **Obrigatório** com `direction`, `confidence`, `timestamp`. |
+| `metrics` | `object` | **Obrigatório** com `win_rate`, `profit_factor`, `drawdown`, `trades_total`. |
+
+### Campos opcionais (retrocompatíveis)
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `symbol` | `string` | Ativo atual do snapshot. |
+| `timeframe` | `string` | Timeframe principal exibido. |
+| `system_status` | `string` | Versão em caixa alta para consumidores legados da `interface`. |
+| `last_signal` | `string` | Alias legado para `current_signal.direction`. |
+| `confidence` | `number` | Alias legado para `current_signal.confidence`. |
+| `candles` | `array<object>` | Série recente para visualização no dashboard web. |
+| `history` | `array<object>` | Histórico recente de sinais/trades. |
+| `metrics.trades` | `integer` | Alias temporário de compatibilidade para consumidores que ainda não migraram de `trades` para `trades_total`. |
+| `metrics.expectancy` | `number` | Métrica opcional de expectativa por trade. |
+| `metrics.equity_curve` | `array<object>` | Curva de equity opcional. |
+
+### Exemplo JSON
+
+```json
+{
+  "schema_version": "1.0.0",
+  "status": "running",
+  "updated_at": "2026-01-15T12:35:00Z",
+  "symbol": "EURUSD",
+  "timeframe": "1m",
+  "system_status": "RUNNING",
+  "current_signal": {
+    "direction": "CALL",
+    "confidence": 0.74,
+    "timestamp": "2026-01-15T12:35:00Z"
+  },
+  "last_signal": "CALL",
+  "confidence": 0.74,
+  "history": [
+    {
+      "signal_id": "sig_20260115_123500",
+      "symbol": "EURUSD",
+      "timeframe": "1m",
+      "direction": "CALL",
+      "confidence": 0.74,
+      "timestamp_open": "2026-01-15T12:35:00Z"
+    }
+  ],
+  "metrics": {
+    "win_rate": 0.58,
+    "profit_factor": 1.4,
+    "drawdown": 0.07,
+    "trades_total": 55,
+    "trades": 55,
+    "expectancy": 1.2
+  }
+}
+```
+
+---
+
 ## 1) Tick
 
 ### Campos obrigatórios

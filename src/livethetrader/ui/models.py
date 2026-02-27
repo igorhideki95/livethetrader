@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from livethetrader.dashboard import normalize_dashboard_payload
+
 
 @dataclass(slots=True)
 class CurrentSignal:
@@ -68,7 +70,9 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 
 
 def build_snapshot(payload: dict[str, Any]) -> DashboardSnapshot:
-    signal_raw = payload.get("current_signal") or {}
+    normalized = normalize_dashboard_payload(payload)
+
+    signal_raw = normalized.get("current_signal") or {}
     signal = CurrentSignal(
         direction=str(signal_raw.get("direction") or "NEUTRO"),
         confidence=_as_float(signal_raw.get("confidence")),
@@ -76,7 +80,7 @@ def build_snapshot(payload: dict[str, Any]) -> DashboardSnapshot:
     )
 
     candles: list[CandlePoint] = []
-    for item in payload.get("candles") or []:
+    for item in normalized.get("candles") or []:
         candles.append(
             CandlePoint(
                 time=str(item.get("time") or ""),
@@ -91,19 +95,19 @@ def build_snapshot(payload: dict[str, Any]) -> DashboardSnapshot:
         )
 
     history: list[HistoryTrade] = []
-    for item in payload.get("history") or []:
+    for item in normalized.get("history") or []:
         history.append(
             HistoryTrade(
                 time=str(item.get("time") or ""),
                 symbol=str(item.get("symbol") or ""),
-                signal=str(item.get("signal") or "NEUTRO"),
+                signal=str(item.get("signal") or item.get("direction") or "NEUTRO"),
                 confidence=_as_float(item.get("confidence")),
                 result=str(item.get("result") or ""),
                 pnl=_as_float(item.get("pnl")),
             )
         )
 
-    metrics_raw = payload.get("metrics") or {}
+    metrics_raw = normalized.get("metrics") or {}
     equity_curve = [
         EquityPoint(time=str(p.get("time") or ""), equity=_as_float(p.get("equity")))
         for p in (metrics_raw.get("equity_curve") or [])
@@ -113,14 +117,14 @@ def build_snapshot(payload: dict[str, Any]) -> DashboardSnapshot:
         win_rate=_as_float(metrics_raw.get("win_rate")),
         profit_factor=_as_float(metrics_raw.get("profit_factor")),
         drawdown=_as_float(metrics_raw.get("drawdown")),
-        trades=int(metrics_raw.get("trades") or 0),
+        trades=int(metrics_raw.get("trades_total") or metrics_raw.get("trades") or 0),
         expectancy=_as_float(metrics_raw.get("expectancy")),
         equity_curve=equity_curve,
     )
 
     snapshot = DashboardSnapshot(
-        status=str(payload.get("status") or "offline"),
-        updated_at=str(payload.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+        status=str(normalized.get("status") or "offline"),
+        updated_at=str(normalized.get("updated_at") or datetime.now(timezone.utc).isoformat()),
         current_signal=signal,
         candles=candles,
         history=history,
