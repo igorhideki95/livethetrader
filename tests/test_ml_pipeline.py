@@ -6,6 +6,7 @@ from livethetrader.ml import (
     ThresholdPolicy,
     build_supervised_dataset,
 )
+from livethetrader.ml.train_cli import run_training
 
 
 def _sample_row(index: int, direction: str = "CALL") -> dict:
@@ -113,3 +114,96 @@ def test_ml_pipeline_missing_artifact_returns_false_and_keeps_fallback_safe(tmp_
     assert loaded is False
     assert pipeline.model_ready is False
     assert pipeline.predict_probability({"ema_9": 1.2, "ema_21": 1.0}) == 0.0
+
+
+def test_run_training_cli_flow_generates_versioned_artifact(tmp_path):
+    dataset_path = tmp_path / "dataset.jsonl"
+    rows = [_sample_row(i) for i in range(18)]
+    dataset_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+
+    artifact_path = run_training(
+        dataset_path=dataset_path,
+        artifact_dir=tmp_path / "artifacts",
+        artifact_prefix="signal-gate",
+        version_tag="dev",
+    )
+
+    assert artifact_path.exists()
+    assert artifact_path.name.startswith("signal-gate-dev-")
+
+
+def test_e2e_train_save_load_and_gate_threshold_decision(tmp_path):
+    rows: list[dict] = []
+    for i in range(24):
+        is_hit = i % 2 == 0
+        entry = 1.10 + i * 0.0001
+        rows.append(
+            {
+                "timestamp": f"2025-01-01T00:{i:02d}:00Z",
+                "direction": "CALL",
+                "base_features": {
+                    "ema_9": 1.30 if is_hit else 0.90,
+                    "ema_21": 1.00 if is_hit else 1.20,
+                    "atr_14": 0.001 if is_hit else 0.0001,
+                    "macd_hist": 0.0004 if is_hit else -0.0004,
+                    "rsi_14": 60 if is_hit else 40,
+                },
+                "entry_close": entry,
+                "future_close": entry + 0.001 if is_hit else entry - 0.001,
+            }
+        )
+
+    samples = build_supervised_dataset(rows, lambda row: MLPipeline.build_sample(**row))
+    pipeline = MLPipeline(threshold_policy=ThresholdPolicy(minimum_probability=0.58))
+    dataset = pipeline.temporal_split(samples)
+    pipeline.train(dataset)
+
+    artifact_path = tmp_path / "e2e_ml_artifact.json"
+    pipeline.save_artifact(artifact_path)
+
+    loaded_pipeline = MLPipeline(threshold_policy=ThresholdPolicy(minimum_probability=0.58))
+    assert loaded_pipeline.load_artifact(artifact_path) is True
+
+    approve_features = next(sample.features for sample in samples if sample.target_hit == 1)
+    reject_features = {
+        "ema_9": -1.0,
+        "ema_21": 2.0,
+        "atr_14": 0.0,
+        "macd_hist": -0.002,
+        "rsi_14": 0.0,
+        "return_horizon": -0.01,
+        "volatility_context": 0.0,
+        "regime_context": -3.0,
+    }
+
+    approve_score = loaded_pipeline.predict_probability(approve_features)
+    reject_score = loaded_pipeline.predict_probability(reject_features)
+    assert approve_score != reject_score
+
+    passing_features = approve_features if approve_score > reject_score else reject_features
+    blocking_features = reject_features if approve_score > reject_score else approve_features
+    passing_score = max(approve_score, reject_score)
+    blocking_score = min(approve_score, reject_score)
+
+    threshold = (passing_score + blocking_score) / 2
+    loaded_pipeline.threshold_policy.minimum_probability = threshold
+
+    gate = SignalPublicationGate(ml_pipeline=loaded_pipeline)
+    approve_direction, approve_confidence, approve_reasons = gate.approve(
+        strategy_direction="CALL",
+        risk_direction="CALL",
+        features=passing_features,
+    )
+    reject_direction, reject_confidence, reject_reasons = gate.approve(
+        strategy_direction="CALL",
+        risk_direction="CALL",
+        features=blocking_features,
+    )
+
+    assert approve_direction == "CALL"
+    assert approve_confidence >= threshold
+    assert "ml_confidence_pass" in approve_reasons
+
+    assert reject_direction == "NEUTRO"
+    assert reject_confidence < threshold
+    assert "ml_confidence_block" in reject_reasons

@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "Modular multi-timeframe trading signal engine"
 requires-python = ">=3.11"
 
+[project.scripts]
+ltt-train-ml = "livethetrader.ml.train_cli:main"
+
 [project.optional-dependencies]
 provider = [
   "websocket-client>=1.8",

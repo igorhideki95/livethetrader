@@ -41,6 +41,12 @@ class DegradedSignalPublicationGate(SignalPublicationGate):
         if risk_direction == "NEUTRO":
             return "NEUTRO", 0.0, reasons + ["risk_guard_block"]
 
+        log_event(
+            LOGGER,
+            "ml_gate_degraded_bypass_active",
+            strategy_direction=strategy_direction,
+            risk_direction=risk_direction,
+        )
         return risk_direction, 1.0, reasons + ["risk_guard_pass", "ml_gate_degraded_bypass"]
 
 
